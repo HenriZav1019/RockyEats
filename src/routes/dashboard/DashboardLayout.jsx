@@ -17,8 +17,14 @@ function DashboardLayout() {
             <NavLink to="/dashboard" end className={linkClass}>
               Orders
             </NavLink>
+            <NavLink to="/dashboard/queue" className={linkClass}>
+              Queue
+            </NavLink>
             <NavLink to="/dashboard/menu" className={linkClass}>
               Menu
+            </NavLink>
+            <NavLink to="/dashboard/sales" className={linkClass}>
+              Sales
             </NavLink>
           </nav>
           <button

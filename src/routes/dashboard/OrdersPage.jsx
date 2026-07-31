@@ -94,6 +94,9 @@ function OrdersPage() {
             {order.order_items.map((item) => (
               <li key={item.id}>
                 {item.quantity}× {item.name_snapshot} — ${item.line_total}
+                {item.notes && (
+                  <span className="ml-1 font-medium text-amber-700">⚠ {item.notes}</span>
+                )}
               </li>
             ))}
           </ul>

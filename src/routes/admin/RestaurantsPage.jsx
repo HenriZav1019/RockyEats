@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase.js'
 function RestaurantsPage() {
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
+  const [deleteError, setDeleteError] = useState(null)
 
   const fetchRestaurants = async () => {
     const { data, error } = await supabase
@@ -30,6 +31,26 @@ function RestaurantsPage() {
       .eq('id', restaurant.id)
   }
 
+  const deleteRestaurant = async (restaurant) => {
+    setDeleteError(null)
+
+    if (!window.confirm(`Permanently delete "${restaurant.name}"? This cannot be undone.`)) {
+      return
+    }
+
+    const { error } = await supabase.from('restaurants').delete().eq('id', restaurant.id)
+
+    if (error) {
+      setDeleteError(
+        `Couldn't delete "${restaurant.name}": it likely has existing orders or an assigned owner. ` +
+          'Remove its owner under Users first, or use "Active" to hide it instead of deleting.',
+      )
+      return
+    }
+
+    setRestaurants((prev) => prev.filter((r) => r.id !== restaurant.id))
+  }
+
   if (loading) return <p className="text-gray-500">Loading restaurants…</p>
 
   return (
@@ -43,6 +64,8 @@ function RestaurantsPage() {
           + New restaurant
         </Link>
       </div>
+
+      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
 
       <div className="space-y-2">
         {restaurants.map((r) => (
@@ -66,6 +89,13 @@ function RestaurantsPage() {
               >
                 Edit
               </Link>
+              <button
+                type="button"
+                onClick={() => deleteRestaurant(r)}
+                className="text-sm text-red-600 hover:text-red-800"
+              >
+                Delete
+              </button>
             </div>
           </div>
         ))}

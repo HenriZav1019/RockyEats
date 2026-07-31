@@ -44,24 +44,21 @@ function RestaurantFormPage() {
   useEffect(() => {
     if (isNew) return
 
-    supabase
-      .from('restaurants')
-      .select('*')
-      .eq('id', id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          const bank = data.bank_account_details || {}
-          setForm({
-            ...data,
-            bank_name: bank.bank_name || '',
-            account_holder: bank.account_holder || '',
-            clabe: bank.clabe || '',
-            bank_notes: bank.notes || '',
-          })
-        }
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from('restaurants').select('*').eq('id', id).single(),
+      supabase.from('restaurant_payment_details').select('*').eq('restaurant_id', id).maybeSingle(),
+    ]).then(([{ data }, { data: bank }]) => {
+      if (data) {
+        setForm({
+          ...data,
+          bank_name: bank?.bank_name || '',
+          account_holder: bank?.account_holder || '',
+          clabe: bank?.clabe || '',
+          bank_notes: bank?.notes || '',
+        })
+      }
+      setLoading(false)
+    })
   }, [id, isNew])
 
   const set = (key) => (e) => {
@@ -88,22 +85,30 @@ function RestaurantFormPage() {
       accepts_transfer: form.accepts_transfer,
       accepts_card_terminal: form.accepts_card_terminal,
       is_active: form.is_active,
-      bank_account_details: {
-        bank_name: form.bank_name,
-        account_holder: form.account_holder,
-        clabe: form.clabe,
-        notes: form.bank_notes,
-      },
     }
 
-    const { error: saveError } = isNew
-      ? await supabase.from('restaurants').insert(payload)
-      : await supabase.from('restaurants').update(payload).eq('id', id)
+    const { data: savedRestaurant, error: saveError } = isNew
+      ? await supabase.from('restaurants').insert(payload).select().single()
+      : await supabase.from('restaurants').update(payload).eq('id', id).select().single()
+
+    if (saveError) {
+      setSaving(false)
+      setError(saveError.message)
+      return
+    }
+
+    const { error: bankError } = await supabase.from('restaurant_payment_details').upsert({
+      restaurant_id: savedRestaurant.id,
+      bank_name: form.bank_name || null,
+      account_holder: form.account_holder || null,
+      clabe: form.clabe || null,
+      notes: form.bank_notes || null,
+    })
 
     setSaving(false)
 
-    if (saveError) {
-      setError(saveError.message)
+    if (bankError) {
+      setError(bankError.message)
       return
     }
 
