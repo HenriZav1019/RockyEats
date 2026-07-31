@@ -3,6 +3,7 @@ import { useCart } from '../../context/CartContext.jsx'
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext.jsx'
 import LanguagePicker from '../../components/LanguagePicker.jsx'
 import logo from '../../assets/rockyeats-logo.png'
+import wordmark from '../../assets/rockyeats-wordmark.png'
 
 function ClientLayoutInner() {
   const { cart, itemCount, total } = useCart()
@@ -25,9 +26,8 @@ function ClientLayoutInner() {
 
       <header className="sticky top-0 z-20 border-b border-black/20 bg-ocean-900 shadow-lg shadow-black/20">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-4">
-          <Link to="/" className="flex items-center gap-1.5 py-3">
-            <span className="font-display text-2xl italic text-sunset-400 sm:text-3xl">Rocky</span>
-            <span className="font-display text-2xl font-extrabold tracking-tight text-ocean-100 sm:text-3xl">EATS</span>
+          <Link to="/" className="flex items-center py-3">
+            <img src={wordmark} alt="RockyEats" className="h-8 w-auto sm:h-10" />
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
