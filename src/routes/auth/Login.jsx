@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { isAdminProfile } from '../../lib/adminAccess.js'
 
 function Login() {
   const { session, profile, loading, signIn, signOut } = useAuth()
@@ -9,8 +10,27 @@ function Login() {
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
+  if (!loading && session && profile?.role === 'admin' && !isAdminProfile(profile)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <div className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-gray-700">
+            This account isn't authorized for admin access.
+          </p>
+          <button
+            type="button"
+            onClick={() => signOut()}
+            className="text-sm text-gray-500 hover:text-gray-800"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (!loading && session && profile) {
-    return <Navigate to={profile.role === 'admin' ? '/admin' : '/dashboard'} replace />
+    return <Navigate to={isAdminProfile(profile) ? '/admin' : '/dashboard'} replace />
   }
 
   if (!loading && session && !profile) {

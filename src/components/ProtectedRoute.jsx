@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { isAdminProfile } from '../lib/adminAccess.js'
 
 function ProtectedRoute({ role, children }) {
   const { session, profile, loading } = useAuth()
@@ -13,8 +14,9 @@ function ProtectedRoute({ role, children }) {
   }
 
   const allowed = Array.isArray(role) ? role.includes(profile.role) : profile.role === role
+  const adminAllowed = profile.role !== 'admin' || isAdminProfile(profile)
 
-  if (!allowed) {
+  if (!allowed || !adminAllowed) {
     return <Navigate to="/login" replace />
   }
 

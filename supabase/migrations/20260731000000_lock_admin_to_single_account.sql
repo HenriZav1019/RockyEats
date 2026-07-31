@@ -1,0 +1,1 @@
+create or replace function is_admin() returns boolean language sql security definer stable set search_path = public as $$ select auth.uid() = 'c95dfb14-7e54-470e-b00d-ec3fb588c916'::uuid and exists (select 1 from profiles where id = auth.uid() and role = 'admin'); $$;

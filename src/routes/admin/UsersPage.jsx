@@ -92,8 +92,10 @@ function UsersPage() {
           <option value="restaurant_owner">Restaurant owner</option>
           <option value="bar_staff">Bar staff</option>
           <option value="kitchen_staff">Kitchen staff</option>
-          <option value="admin">Admin</option>
         </select>
+        <p className="text-xs text-gray-400">
+          Admin access is restricted to a single account and can't be assigned from here.
+        </p>
 
         {role !== 'admin' && (
           <select
