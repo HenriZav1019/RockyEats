@@ -70,11 +70,17 @@ function RestaurantList() {
               style={{ animationDelay: `${index * 0.08}s` }}
               className="animate-fade-up group overflow-hidden rounded-2xl border border-sunset-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]"
             >
-              <div className="flex h-24 items-center justify-center bg-gradient-to-br from-sunset-300 via-coral-400 to-ocean-500 transition group-hover:from-sunset-400 group-hover:to-ocean-600">
-                <span className="font-display text-2xl font-bold text-white drop-shadow">
-                  {r.name}
-                </span>
-              </div>
+              {r.logo_url ? (
+                <div className="flex h-24 items-center justify-center bg-white">
+                  <img src={r.logo_url} alt={r.name} className="h-full w-full object-contain p-3" />
+                </div>
+              ) : (
+                <div className="flex h-24 items-center justify-center bg-gradient-to-br from-sunset-300 via-coral-400 to-ocean-500 transition group-hover:from-sunset-400 group-hover:to-ocean-600">
+                  <span className="font-display text-2xl font-bold text-white drop-shadow">
+                    {r.name}
+                  </span>
+                </div>
+              )}
               <div className="p-4">
                 {r.address && <p className="text-sm text-gray-500">{r.address}</p>}
                 <div className="mt-3 flex flex-wrap gap-2">

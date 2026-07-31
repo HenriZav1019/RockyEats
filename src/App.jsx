@@ -18,6 +18,7 @@ import QueuePage from './routes/dashboard/QueuePage.jsx'
 import StationQueuePage from './routes/dashboard/StationQueuePage.jsx'
 import MenuPage from './routes/dashboard/MenuPage.jsx'
 import SalesPage from './routes/dashboard/SalesPage.jsx'
+import SettingsPage from './routes/dashboard/SettingsPage.jsx'
 
 import AdminLayout from './routes/admin/AdminLayout.jsx'
 import RestaurantsPage from './routes/admin/RestaurantsPage.jsx'
@@ -54,6 +55,7 @@ function App() {
               <Route path="queue/kitchen" element={<StationQueuePage station="kitchen" />} />
               <Route path="menu" element={<MenuPage />} />
               <Route path="sales" element={<SalesPage />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
 
             <Route
