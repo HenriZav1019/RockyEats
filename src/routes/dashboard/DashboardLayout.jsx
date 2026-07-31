@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 
 const linkClass = ({ isActive }) =>
@@ -6,26 +6,42 @@ const linkClass = ({ isActive }) =>
     isActive ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
   }`
 
+const STATION_HOME = { bar_staff: '/dashboard/queue/bar', kitchen_staff: '/dashboard/queue/kitchen' }
+
 function DashboardLayout() {
-  const { signOut } = useAuth()
+  const { profile, signOut } = useAuth()
+  const location = useLocation()
+
+  const stationHome = STATION_HOME[profile.role]
+  if (stationHome && location.pathname !== stationHome) {
+    return <Navigate to={stationHome} replace />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <nav className="flex gap-2">
-            <NavLink to="/dashboard" end className={linkClass}>
-              Orders
-            </NavLink>
-            <NavLink to="/dashboard/queue" className={linkClass}>
-              Queue
-            </NavLink>
-            <NavLink to="/dashboard/menu" className={linkClass}>
-              Menu
-            </NavLink>
-            <NavLink to="/dashboard/sales" className={linkClass}>
-              Sales
-            </NavLink>
+            {stationHome ? (
+              <NavLink to={stationHome} className={linkClass}>
+                {profile.role === 'bar_staff' ? 'Bar queue' : 'Kitchen queue'}
+              </NavLink>
+            ) : (
+              <>
+                <NavLink to="/dashboard" end className={linkClass}>
+                  Orders
+                </NavLink>
+                <NavLink to="/dashboard/queue" className={linkClass}>
+                  Queue
+                </NavLink>
+                <NavLink to="/dashboard/menu" className={linkClass}>
+                  Menu
+                </NavLink>
+                <NavLink to="/dashboard/sales" className={linkClass}>
+                  Sales
+                </NavLink>
+              </>
+            )}
           </nav>
           <button
             type="button"

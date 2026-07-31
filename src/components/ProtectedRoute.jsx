@@ -12,7 +12,9 @@ function ProtectedRoute({ role, children }) {
     return <Navigate to="/login" replace />
   }
 
-  if (profile.role !== role) {
+  const allowed = Array.isArray(role) ? role.includes(profile.role) : profile.role === role
+
+  if (!allowed) {
     return <Navigate to="/login" replace />
   }
 

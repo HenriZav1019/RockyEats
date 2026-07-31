@@ -68,6 +68,7 @@ function CheckoutPage() {
         menu_item_id: item.id,
         name_snapshot: item.name,
         price_snapshot: item.price,
+        station_snapshot: item.station || 'kitchen',
         quantity: item.quantity,
         notes: item.notes || null,
       })),

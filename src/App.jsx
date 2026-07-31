@@ -13,8 +13,9 @@ import OrderConfirmationPage from './routes/client/OrderConfirmationPage.jsx'
 import Login from './routes/auth/Login.jsx'
 
 import DashboardLayout from './routes/dashboard/DashboardLayout.jsx'
-import OrdersPage from './routes/dashboard/OrdersPage.jsx'
+import DashboardIndex from './routes/dashboard/DashboardIndex.jsx'
 import QueuePage from './routes/dashboard/QueuePage.jsx'
+import StationQueuePage from './routes/dashboard/StationQueuePage.jsx'
 import MenuPage from './routes/dashboard/MenuPage.jsx'
 import SalesPage from './routes/dashboard/SalesPage.jsx'
 
@@ -42,13 +43,15 @@ function App() {
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute role="restaurant_owner">
+                <ProtectedRoute role={['restaurant_owner', 'bar_staff', 'kitchen_staff']}>
                   <DashboardLayout />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<OrdersPage />} />
+              <Route index element={<DashboardIndex />} />
               <Route path="queue" element={<QueuePage />} />
+              <Route path="queue/bar" element={<StationQueuePage station="bar" />} />
+              <Route path="queue/kitchen" element={<StationQueuePage station="kitchen" />} />
               <Route path="menu" element={<MenuPage />} />
               <Route path="sales" element={<SalesPage />} />
             </Route>

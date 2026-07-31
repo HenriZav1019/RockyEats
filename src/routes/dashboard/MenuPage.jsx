@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 
-const emptyForm = { name: '', description: '', price: '', category: '', photo_url: '' }
+const emptyForm = { name: '', description: '', price: '', category: '', photo_url: '', station: 'kitchen' }
 
 function MenuPage() {
   const { profile } = useAuth()
@@ -36,6 +36,12 @@ function MenuPage() {
     await supabase.from('menu_items').update({ available: !item.available }).eq('id', item.id)
   }
 
+  const toggleStation = async (item) => {
+    const station = item.station === 'bar' ? 'kitchen' : 'bar'
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, station } : i)))
+    await supabase.from('menu_items').update({ station }).eq('id', item.id)
+  }
+
   const deleteItem = async (id) => {
     setItems((prev) => prev.filter((i) => i.id !== id))
     await supabase.from('menu_items').delete().eq('id', id)
@@ -53,6 +59,7 @@ function MenuPage() {
       price: Number(form.price),
       category: form.category || null,
       photo_url: form.photo_url || null,
+      station: form.station,
     })
 
     setSaving(false)
@@ -100,6 +107,14 @@ function MenuPage() {
             onChange={(e) => setForm({ ...form, photo_url: e.target.value })}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
+          <select
+            value={form.station}
+            onChange={(e) => setForm({ ...form, station: e.target.value })}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="kitchen">Kitchen</option>
+            <option value="bar">Bar</option>
+          </select>
           <textarea
             placeholder="Description"
             value={form.description}
@@ -136,6 +151,15 @@ function MenuPage() {
               </div>
 
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => toggleStation(item)}
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    item.station === 'bar' ? 'bg-ocean-100 text-ocean-800' : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {item.station === 'bar' ? '🍹 Bar' : '👨‍🍳 Kitchen'}
+                </button>
                 <label className="flex items-center gap-1.5 text-sm text-gray-700">
                   <input
                     type="checkbox"

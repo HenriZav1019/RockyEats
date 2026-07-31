@@ -31,8 +31,8 @@ function UsersPage() {
     e.preventDefault()
     setError(null)
 
-    if (role === 'restaurant_owner' && !restaurantId) {
-      setError('Pick a restaurant for a restaurant-owner account.')
+    if (role !== 'admin' && !restaurantId) {
+      setError('Pick a restaurant for this role.')
       return
     }
 
@@ -90,10 +90,12 @@ function UsersPage() {
           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         >
           <option value="restaurant_owner">Restaurant owner</option>
+          <option value="bar_staff">Bar staff</option>
+          <option value="kitchen_staff">Kitchen staff</option>
           <option value="admin">Admin</option>
         </select>
 
-        {role === 'restaurant_owner' && (
+        {role !== 'admin' && (
           <select
             value={restaurantId}
             onChange={(e) => setRestaurantId(e.target.value)}

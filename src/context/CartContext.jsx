@@ -37,7 +37,7 @@ export function CartProvider({ children }) {
         ? existingItems.map((i) => (i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i))
         : [
             ...existingItems,
-            { id: item.id, name: item.name, price: item.price, quantity: 1, notes: '' },
+            { id: item.id, name: item.name, price: item.price, station: item.station || 'kitchen', quantity: 1, notes: '' },
           ]
 
       return {
