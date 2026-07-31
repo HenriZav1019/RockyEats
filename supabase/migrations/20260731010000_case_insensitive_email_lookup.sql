@@ -1,0 +1,1 @@
+create or replace function admin_lookup_user_id_by_email(lookup_email text) returns uuid language plpgsql security definer stable set search_path = public as $$ declare result uuid; begin if not is_admin() then raise exception 'Only admins can look up users by email'; end if; select id into result from auth.users where lower(email) = lower(lookup_email); return result; end; $$;
