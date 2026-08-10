@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { playChime } from '../../lib/chime.js'
+
+const NEW_ORDER_HIGHLIGHT_MS = 15000
 
 const STATUSES = ['submitted', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled']
 
@@ -20,6 +23,7 @@ function OrdersPage() {
   const { profile } = useAuth()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [newOrderIds, setNewOrderIds] = useState(new Set())
 
   const fetchOrders = useCallback(async () => {
     const { data, error } = await supabase
@@ -40,7 +44,29 @@ function OrdersPage() {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${profile.restaurant_id}`,
+        },
+        (payload) => {
+          playChime()
+          const orderId = payload.new.id
+          setNewOrderIds((prev) => new Set(prev).add(orderId))
+          setTimeout(() => {
+            setNewOrderIds((prev) => {
+              const next = new Set(prev)
+              next.delete(orderId)
+              return next
+            })
+          }, NEW_ORDER_HIGHLIGHT_MS)
+          fetchOrders()
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
           schema: 'public',
           table: 'orders',
           filter: `restaurant_id=eq.${profile.restaurant_id}`,
@@ -75,10 +101,22 @@ function OrdersPage() {
   return (
     <div className="space-y-4">
       {orders.map((order) => (
-        <div key={order.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div
+          key={order.id}
+          className={`rounded-lg border bg-white p-4 shadow-sm ${
+            newOrderIds.has(order.id)
+              ? 'animate-pulse border-sunset-400 ring-2 ring-sunset-400'
+              : 'border-gray-200'
+          }`}
+        >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="font-semibold text-gray-900">
+                {newOrderIds.has(order.id) && (
+                  <span className="mr-2 rounded-full bg-sunset-500 px-2 py-0.5 text-xs font-bold text-white">
+                    NEW
+                  </span>
+                )}
                 #{order.order_number} — {order.customer_name}
               </p>
               <p className="text-sm text-gray-500">
