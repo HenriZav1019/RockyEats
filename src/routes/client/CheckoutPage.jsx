@@ -94,12 +94,12 @@ function CheckoutPage() {
     }
     const orderItemsSnapshot = cart.items
     const restaurantSnapshot = restaurant
-    clearCart()
 
     navigate('/order-confirmation', {
       replace: true,
       state: { order, orderItems: orderItemsSnapshot, restaurant: restaurantSnapshot },
     })
+    clearCart()
   }
 
   return (
