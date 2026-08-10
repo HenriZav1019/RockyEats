@@ -30,11 +30,47 @@ function StatTile({ label, value }) {
   )
 }
 
+function groupTodayItems(orders) {
+  const groups = new Map()
+
+  for (const order of orders) {
+    for (const item of order.order_items) {
+      const key = `${item.name_snapshot}__${item.price_snapshot}`
+      const existing = groups.get(key)
+      if (existing) {
+        existing.quantity += item.quantity
+        existing.total += Number(item.line_total)
+      } else {
+        groups.set(key, {
+          name: item.name_snapshot,
+          unitPrice: Number(item.price_snapshot),
+          quantity: item.quantity,
+          total: Number(item.line_total),
+        })
+      }
+    }
+  }
+
+  return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name))
+}
+
 function SalesPage() {
   const { profile } = useAuth()
   const [days, setDays] = useState([])
   const [loading, setLoading] = useState(true)
   const [hovered, setHovered] = useState(null)
+  const [restaurantName, setRestaurantName] = useState('')
+  const [todayItems, setTodayItems] = useState([])
+  const [todayLoading, setTodayLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('restaurants')
+      .select('name')
+      .eq('id', profile.restaurant_id)
+      .single()
+      .then(({ data }) => setRestaurantName(data?.name || ''))
+  }, [profile.restaurant_id])
 
   useEffect(() => {
     const cutoff = new Date()
@@ -64,24 +100,47 @@ function SalesPage() {
       })
   }, [profile.restaurant_id])
 
+  useEffect(() => {
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    supabase
+      .from('orders')
+      .select('order_items(name_snapshot, price_snapshot, quantity, line_total)')
+      .eq('restaurant_id', profile.restaurant_id)
+      .neq('status', 'cancelled')
+      .gte('created_at', todayStart.toISOString())
+      .then(({ data }) => {
+        setTodayItems(groupTodayItems(data || []))
+        setTodayLoading(false)
+      })
+  }, [profile.restaurant_id])
+
   if (loading) return <p className="text-gray-500">Cargando ventas…</p>
 
   const totalRevenue = days.reduce((sum, d) => sum + d.revenue, 0)
   const totalItems = days.reduce((sum, d) => sum + d.items, 0)
   const avgPerDay = totalRevenue / DAYS
   const maxRevenue = Math.max(1, ...days.map((d) => d.revenue))
+  const todayTotal = todayItems.reduce((sum, i) => sum + i.total, 0)
+  const todayDateLabel = new Date().toLocaleDateString('es-MX', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Ventas — últimos {DAYS} días</h1>
+      <h1 className="text-xl font-semibold text-gray-900 print:hidden">Ventas — últimos {DAYS} días</h1>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 print:hidden">
         <StatTile label="Ingresos totales" value={`$${totalRevenue.toFixed(2)}`} />
         <StatTile label="Artículos vendidos" value={totalItems} />
         <StatTile label="Promedio diario" value={`$${avgPerDay.toFixed(2)}`} />
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm print:hidden">
         <p className="text-sm font-medium text-gray-700">Ingresos por día</p>
 
         <div className="mt-6 flex items-end gap-1.5 border-b border-gray-200 pb-1" style={{ height: 160 }}>
@@ -112,6 +171,61 @@ function SalesPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm print:rounded-none print:border-none print:p-0 print:shadow-none">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Ventas de hoy</h2>
+            <p className="text-sm capitalize text-gray-500">
+              {restaurantName ? `${restaurantName} · ` : ''}
+              {todayDateLabel}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            disabled={todayLoading || todayItems.length === 0}
+            className="print:hidden rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            🖨️ Exportar ventas de hoy
+          </button>
+        </div>
+
+        {todayLoading ? (
+          <p className="mt-4 text-sm text-gray-500">Cargando…</p>
+        ) : todayItems.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500">Todavía no hay ventas hoy.</p>
+        ) : (
+          <table className="mt-4 w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-left text-gray-500">
+                <th className="py-2 font-medium">Artículo</th>
+                <th className="py-2 text-right font-medium">Cantidad</th>
+                <th className="py-2 text-right font-medium">Precio</th>
+                <th className="py-2 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todayItems.map((item) => (
+                <tr key={`${item.name}__${item.unitPrice}`} className="border-b border-gray-100 text-gray-800">
+                  <td className="py-2">{item.name}</td>
+                  <td className="py-2 text-right">{item.quantity}</td>
+                  <td className="py-2 text-right">${item.unitPrice.toFixed(2)}</td>
+                  <td className="py-2 text-right">${item.total.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="font-semibold text-gray-900">
+                <td className="py-2" colSpan={3}>
+                  Total del día
+                </td>
+                <td className="py-2 text-right">${todayTotal.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
       </div>
     </div>
   )
