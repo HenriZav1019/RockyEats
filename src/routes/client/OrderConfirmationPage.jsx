@@ -9,6 +9,14 @@ import { supabase } from '../../lib/supabase.js'
 const MODE_LABELS_ES = { dine_in: 'Aquí en el restaurante', delivery: 'A domicilio', pickup: 'Para recoger' }
 const PAYMENT_LABELS_ES = { cash: 'Efectivo', transfer: 'Transferencia', card_terminal: 'Tarjeta (terminal)' }
 
+function buildDeliveryAddressLines(order) {
+  const lines = [`${order.delivery_street} #${order.delivery_number}`]
+  if (order.delivery_between_streets) lines.push(`Entre calles: ${order.delivery_between_streets}`)
+  if (order.delivery_is_hotel_or_condo) lines.push(`Hotel/condominio — habitación/unidad: ${order.delivery_unit_number}`)
+  if (order.delivery_reference) lines.push(`Referencia: ${order.delivery_reference}`)
+  return lines
+}
+
 function buildWhatsAppMessage(order, orderItems, total, restaurantName) {
   const itemLines = orderItems
     .map((i) => `• ${i.quantity}x ${i.name}${i.notes ? ` (${i.notes})` : ''}`)
@@ -20,6 +28,10 @@ function buildWhatsAppMessage(order, orderItems, total, restaurantName) {
     `Pago: ${PAYMENT_LABELS_ES[order.payment_method]}\n\n` +
     `${itemLines}\n\n` +
     `Total: $${total.toFixed(2)}`
+
+  if (order.mode === 'delivery') {
+    message += `\n\n📍 Dirección:\n${buildDeliveryAddressLines(order).join('\n')}`
+  }
 
   if (order.payment_method === 'transfer') {
     message += '\n\nLes enviaré mi comprobante de pago por aquí en un momento. 🙌'
@@ -133,6 +145,20 @@ function OrderConfirmationPage() {
           <span>${total.toFixed(2)}</span>
         </div>
       </div>
+
+      {order.mode === 'delivery' && (
+        <div
+          className="animate-fade-up mt-4 rounded-2xl border border-sunset-100 bg-white p-4 shadow-sm"
+          style={{ animationDelay: '0.35s' }}
+        >
+          <p className="text-sm font-semibold text-gray-900">{t('checkout.deliveryAddress')}</p>
+          <ul className="mt-2 space-y-1 text-sm text-gray-700">
+            {buildDeliveryAddressLines(order).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {order.payment_method === 'transfer' && (
         <div

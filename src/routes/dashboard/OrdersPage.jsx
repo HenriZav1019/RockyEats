@@ -19,6 +19,14 @@ const STATUS_COLORS = {
 const MODE_LABELS = { dine_in: "I'm here", delivery: 'Deliver to me', pickup: "I'll pick it up" }
 const PAYMENT_LABELS = { cash: 'Cash', transfer: 'Transfer', card_terminal: 'Card terminal' }
 
+function deliveryAddressLines(order) {
+  const lines = [`${order.delivery_street} #${order.delivery_number}`]
+  if (order.delivery_between_streets) lines.push(`Between: ${order.delivery_between_streets}`)
+  if (order.delivery_is_hotel_or_condo) lines.push(`Hotel/condo — room/unit: ${order.delivery_unit_number}`)
+  if (order.delivery_reference) lines.push(`Reference: ${order.delivery_reference}`)
+  return lines
+}
+
 function OrdersPage() {
   const { profile } = useAuth()
   const [orders, setOrders] = useState([])
@@ -122,6 +130,17 @@ function OrdersPage() {
               <p className="text-sm text-gray-500">
                 {order.customer_phone} · {MODE_LABELS[order.mode]} · {PAYMENT_LABELS[order.payment_method]}
               </p>
+              {order.mode === 'delivery' && (
+                <p className="mt-1 text-sm text-gray-700">
+                  📍{' '}
+                  {deliveryAddressLines(order).map((line, i) => (
+                    <span key={line}>
+                      {i > 0 && ' · '}
+                      {line}
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
             <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[order.status]}`}>
               {order.status}

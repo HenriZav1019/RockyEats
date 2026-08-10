@@ -19,6 +19,12 @@ function CheckoutPage() {
   const [restaurant, setRestaurant] = useState(null)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [deliveryStreet, setDeliveryStreet] = useState('')
+  const [deliveryNumber, setDeliveryNumber] = useState('')
+  const [deliveryBetweenStreets, setDeliveryBetweenStreets] = useState('')
+  const [deliveryReference, setDeliveryReference] = useState('')
+  const [deliveryIsHotelOrCondo, setDeliveryIsHotelOrCondo] = useState(false)
+  const [deliveryUnitNumber, setDeliveryUnitNumber] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -51,6 +57,18 @@ function CheckoutPage() {
 
     const orderId = crypto.randomUUID()
 
+    const deliveryFields =
+      cart.mode === 'delivery'
+        ? {
+            delivery_street: deliveryStreet,
+            delivery_number: deliveryNumber,
+            delivery_between_streets: deliveryBetweenStreets || null,
+            delivery_reference: deliveryReference || null,
+            delivery_is_hotel_or_condo: deliveryIsHotelOrCondo,
+            delivery_unit_number: deliveryIsHotelOrCondo ? deliveryUnitNumber : null,
+          }
+        : {}
+
     const { error: orderError } = await supabase.from('orders').insert({
       id: orderId,
       restaurant_id: restaurantId,
@@ -59,6 +77,7 @@ function CheckoutPage() {
       customer_name: name,
       customer_phone: phone,
       total,
+      ...deliveryFields,
     })
 
     if (orderError) {
@@ -97,6 +116,7 @@ function CheckoutPage() {
       customer_name: name,
       customer_phone: phone,
       total,
+      ...deliveryFields,
     }
     const orderItemsSnapshot = cart.items
     const restaurantSnapshot = restaurant
@@ -153,6 +173,90 @@ function CheckoutPage() {
             />
           </div>
         </div>
+
+        {cart.mode === 'delivery' && (
+          <div className="space-y-3 rounded-xl border border-sunset-100 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-gray-900">{t('checkout.deliveryAddress')}</p>
+            <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800">
+              {t('checkout.deliveryFeeNote')}
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="delivery-street">
+                {t('checkout.street')}
+              </label>
+              <input
+                id="delivery-street"
+                required
+                value={deliveryStreet}
+                onChange={(e) => setDeliveryStreet(e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-ocean-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="delivery-number">
+                {t('checkout.number')}
+              </label>
+              <input
+                id="delivery-number"
+                required
+                value={deliveryNumber}
+                onChange={(e) => setDeliveryNumber(e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-ocean-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="delivery-between">
+                {t('checkout.betweenStreets')}
+              </label>
+              <input
+                id="delivery-between"
+                value={deliveryBetweenStreets}
+                onChange={(e) => setDeliveryBetweenStreets(e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-ocean-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="delivery-reference">
+                {t('checkout.reference')}
+              </label>
+              <textarea
+                id="delivery-reference"
+                value={deliveryReference}
+                onChange={(e) => setDeliveryReference(e.target.value)}
+                rows={2}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-ocean-500 focus:outline-none"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={deliveryIsHotelOrCondo}
+                onChange={(e) => setDeliveryIsHotelOrCondo(e.target.checked)}
+              />
+              {t('checkout.isHotelOrCondo')}
+            </label>
+
+            {deliveryIsHotelOrCondo && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700" htmlFor="delivery-unit">
+                  {t('checkout.unitNumber')}
+                </label>
+                <input
+                  id="delivery-unit"
+                  required
+                  value={deliveryUnitNumber}
+                  onChange={(e) => setDeliveryUnitNumber(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-ocean-500 focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="rounded-xl border border-sunset-100 bg-white p-4 shadow-sm">
           <p className="text-sm font-semibold text-gray-900">{t('checkout.howToPay')}</p>
