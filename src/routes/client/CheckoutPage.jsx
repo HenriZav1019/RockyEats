@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
@@ -32,7 +32,7 @@ function CheckoutPage() {
       .then(({ data }) => setRestaurant(data || null))
   }, [restaurantId])
 
-  if (cart.restaurantId !== restaurantId || cart.items.length === 0 || !cart.mode) {
+  if (cart.restaurantId !== restaurantId || cart.items.length === 0) {
     return <Navigate to={`/r/${restaurantId}`} replace />
   }
 
@@ -41,6 +41,12 @@ function CheckoutPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
+
+    if (!cart.mode) {
+      setError(t('checkout.noModeError'))
+      return
+    }
+
     setSubmitting(true)
 
     const orderId = crypto.randomUUID()
@@ -105,6 +111,19 @@ function CheckoutPage() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="font-display text-2xl font-bold text-ocean-900">{t('checkout.almostThere')}</h1>
       <p className="text-sm text-gray-500">{cart.restaurantName} · ${total.toFixed(2)}</p>
+
+      {cart.mode ? (
+        <p className="mt-1 text-sm text-gray-500">
+          {t('cart.mode')}: <span className="font-medium text-gray-800">{t(`mode.${cart.mode}`)}</span>
+        </p>
+      ) : (
+        <p className="mt-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {t('checkout.noModeError')}{' '}
+          <Link to={`/r/${restaurantId}`} className="font-medium underline">
+            {t('cart.keepBrowsing')}
+          </Link>
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-5">
         <div className="space-y-3 rounded-xl border border-sunset-100 bg-white p-4 shadow-sm">
@@ -171,7 +190,7 @@ function CheckoutPage() {
 
         <button
           type="submit"
-          disabled={submitting || !paymentMethod}
+          disabled={submitting || !paymentMethod || !cart.mode}
           className="w-full rounded-full bg-sunset-500 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-sunset-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? t('checkout.sending') : t('checkout.confirm')}

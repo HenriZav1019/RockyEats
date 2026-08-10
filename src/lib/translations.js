@@ -32,6 +32,8 @@ export const translations = {
     'cart.keepBrowsing': '← Seguir viendo el menú',
     'cart.continue': 'Continuar →',
     'checkout.almostThere': 'Casi listo 🌮',
+    'checkout.noModeError':
+      'No elegiste el tipo de orden (comer aquí, a domicilio o para recoger). Regresa al menú para seleccionarlo.',
     'checkout.name': 'Tu nombre',
     'checkout.phone': 'Teléfono',
     'checkout.howToPay': '¿Cómo quieres pagar?',
@@ -97,6 +99,8 @@ export const translations = {
     'cart.keepBrowsing': '← Keep browsing the menu',
     'cart.continue': 'Continue →',
     'checkout.almostThere': 'Almost there 🌮',
+    'checkout.noModeError':
+      "You didn't select an order type (dine-in, delivery, or pickup). Go back to the menu to choose one.",
     'checkout.name': 'Your name',
     'checkout.phone': 'Phone',
     'checkout.howToPay': 'How would you like to pay?',
