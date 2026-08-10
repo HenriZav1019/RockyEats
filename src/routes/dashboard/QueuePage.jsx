@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { playChime } from '../../lib/chime.js'
@@ -15,21 +15,63 @@ const MODE_ICONS = { dine_in: '🍽️', delivery: '🛵', pickup: '🥡' }
 const MODE_LABELS = { dine_in: 'Come aquí', delivery: 'Entrega', pickup: 'Recoge en tienda' }
 const PAYMENT_LABELS = { cash: 'Efectivo', transfer: 'Transferencia', card_terminal: 'Terminal / tarjeta' }
 
+function deliveryAddressLines(order) {
+  const lines = [`${order.delivery_street} #${order.delivery_number}`]
+  if (order.delivery_between_streets) lines.push(`Entre calles: ${order.delivery_between_streets}`)
+  if (order.delivery_is_hotel_or_condo) lines.push(`Hotel/condominio — habitación/unidad: ${order.delivery_unit_number}`)
+  if (order.delivery_reference) lines.push(`Referencia: ${order.delivery_reference}`)
+  return lines
+}
+
 function QueuePage() {
   const { profile } = useAuth()
   const [orders, setOrders] = useState([])
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [newOrderIds, setNewOrderIds] = useState(new Set())
+  const hasLoadedOnce = useRef(false)
+
+  const flagNewArrivals = (ids) => {
+    if (ids.length === 0) return
+    playChime()
+    setNewOrderIds((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => next.add(id))
+      return next
+    })
+    ids.forEach((id) => {
+      setTimeout(() => {
+        setNewOrderIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, NEW_ORDER_HIGHLIGHT_MS)
+    })
+  }
 
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('id, order_number, mode, status, customer_name, customer_phone, payment_method, total, order_items(*)')
+      .select(
+        'id, order_number, mode, status, customer_name, customer_phone, payment_method, total, order_items(*), delivery_street, delivery_number, delivery_between_streets, delivery_reference, delivery_is_hotel_or_condo, delivery_unit_number',
+      )
       .eq('restaurant_id', profile.restaurant_id)
       .in('status', ['submitted', 'confirmed', 'preparing', 'ready'])
+      .or('payment_confirmed.eq.true,payment_method.eq.card_terminal')
       .order('created_at', { ascending: true })
 
-    setOrders(data || [])
+    const newList = data || []
+
+    setOrders((prev) => {
+      if (!hasLoadedOnce.current) {
+        hasLoadedOnce.current = true
+        return newList
+      }
+      const prevIds = new Set(prev.map((o) => o.id))
+      const arrivedIds = newList.filter((o) => !prevIds.has(o.id)).map((o) => o.id)
+      flagNewArrivals(arrivedIds)
+      return newList
+    })
   }, [profile.restaurant_id])
 
   useEffect(() => {
@@ -40,29 +82,7 @@ function QueuePage() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders',
-          filter: `restaurant_id=eq.${profile.restaurant_id}`,
-        },
-        (payload) => {
-          playChime()
-          const orderId = payload.new.id
-          setNewOrderIds((prev) => new Set(prev).add(orderId))
-          setTimeout(() => {
-            setNewOrderIds((prev) => {
-              const next = new Set(prev)
-              next.delete(orderId)
-              return next
-            })
-          }, NEW_ORDER_HIGHLIGHT_MS)
-          fetchOrders()
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'orders',
           filter: `restaurant_id=eq.${profile.restaurant_id}`,
@@ -160,6 +180,15 @@ function QueuePage() {
               <p className="font-medium text-sand-50">{selectedOrder.customer_name}</p>
               <p className="text-sm text-sand-200">{selectedOrder.customer_phone}</p>
             </div>
+
+            {selectedOrder.mode === 'delivery' && (
+              <div className="mt-3 border-t border-white/10 pt-3 text-sm text-sand-100">
+                <p className="font-medium text-sand-50">📍 Dirección</p>
+                {deliveryAddressLines(selectedOrder).map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            )}
 
             <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto border-t border-white/10 pt-3 text-sm">
               {selectedOrder.order_items.map((item) => (

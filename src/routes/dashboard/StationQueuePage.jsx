@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { playChime } from '../../lib/chime.js'
@@ -15,20 +15,50 @@ function StationQueuePage({ station }) {
   const [orders, setOrders] = useState([])
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [newOrderIds, setNewOrderIds] = useState(new Set())
+  const hasLoadedOnce = useRef(false)
+
+  const flagNewArrivals = (ids) => {
+    if (ids.length === 0) return
+    playChime()
+    setNewOrderIds((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => next.add(id))
+      return next
+    })
+    ids.forEach((id) => {
+      setTimeout(() => {
+        setNewOrderIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, NEW_ORDER_HIGHLIGHT_MS)
+    })
+  }
 
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('id, order_number, mode, status, customer_name, order_items(*)')
+      .select('id, order_number, mode, status, customer_name, payment_method, order_items(*)')
       .eq('restaurant_id', profile.restaurant_id)
       .in('status', ['submitted', 'confirmed', 'preparing', 'ready'])
+      .or('payment_confirmed.eq.true,payment_method.eq.card_terminal')
       .order('created_at', { ascending: true })
 
     const relevant = (data || [])
       .map((o) => ({ ...o, order_items: o.order_items.filter((i) => i.station_snapshot === station) }))
       .filter((o) => o.order_items.length > 0)
 
-    setOrders(relevant)
+    setOrders((prev) => {
+      if (!hasLoadedOnce.current) {
+        hasLoadedOnce.current = true
+        return relevant
+      }
+      const prevIds = new Set(prev.map((o) => o.id))
+      const arrivedIds = relevant.filter((o) => !prevIds.has(o.id)).map((o) => o.id)
+      flagNewArrivals(arrivedIds)
+      return relevant
+    })
   }, [profile.restaurant_id, station])
 
   useEffect(() => {
@@ -41,24 +71,7 @@ function StationQueuePage({ station }) {
         { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${profile.restaurant_id}` },
         () => fetchOrders(),
       )
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_items' }, (payload) => {
-        if (payload.new.station_snapshot !== station) {
-          fetchOrders()
-          return
-        }
-        playChime()
-        const orderId = payload.new.order_id
-        setNewOrderIds((prev) => new Set(prev).add(orderId))
-        setTimeout(() => {
-          setNewOrderIds((prev) => {
-            const next = new Set(prev)
-            next.delete(orderId)
-            return next
-          })
-        }, NEW_ORDER_HIGHLIGHT_MS)
-        fetchOrders()
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_items' }, () => fetchOrders())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => fetchOrders())
       .subscribe()
 
     return () => supabase.removeChannel(channel)
