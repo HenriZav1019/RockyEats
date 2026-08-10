@@ -158,6 +158,9 @@ function CheckoutPage() {
                 <span>
                   {p.icon} <span className="font-medium text-gray-900">{t(`payment.${p.key}`)}</span>
                   <span className="ml-1 text-gray-500">— {t(`payment.${p.key}.hint`)}</span>
+                  {p.key === 'card_terminal' && restaurant?.card_terminal_mexican_cards_only && (
+                    <span className="ml-1 text-gray-500">({t('payment.card_terminal.mexicanOnly')})</span>
+                  )}
                 </span>
               </label>
             ))}

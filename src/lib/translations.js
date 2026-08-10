@@ -43,6 +43,7 @@ export const translations = {
     'payment.transfer.hint': 'Envías el comprobante por WhatsApp',
     'payment.card_terminal': 'Terminal de tarjeta',
     'payment.card_terminal.hint': 'Pagas en persona con tarjeta',
+    'payment.card_terminal.mexicanOnly': 'Solo tarjetas mexicanas',
     'confirm.notFound':
       'No encontramos los detalles de esta orden. Si ya la enviaste, el restaurante la tiene en su sistema.',
     'confirm.backHome': 'Volver al inicio',
@@ -107,6 +108,7 @@ export const translations = {
     'payment.transfer.hint': 'Send proof via WhatsApp',
     'payment.card_terminal': 'Card terminal',
     'payment.card_terminal.hint': 'Pay in person by card',
+    'payment.card_terminal.mexicanOnly': 'Mexican cards only',
     'confirm.notFound':
       "We couldn't find this order's details. If you already sent it, the restaurant has it in their system.",
     'confirm.backHome': 'Back to home',

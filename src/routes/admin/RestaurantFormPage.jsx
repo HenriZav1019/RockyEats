@@ -15,6 +15,7 @@ const emptyForm = {
   accepts_cash: true,
   accepts_transfer: false,
   accepts_card_terminal: false,
+  card_terminal_mexican_cards_only: false,
   is_active: true,
   bank_name: '',
   account_holder: '',
@@ -84,6 +85,7 @@ function RestaurantFormPage() {
       accepts_cash: form.accepts_cash,
       accepts_transfer: form.accepts_transfer,
       accepts_card_terminal: form.accepts_card_terminal,
+      card_terminal_mexican_cards_only: form.card_terminal_mexican_cards_only,
       is_active: form.is_active,
     }
 
@@ -173,6 +175,30 @@ function RestaurantFormPage() {
           <Checkbox label="Bank transfer" checked={form.accepts_transfer} onChange={set('accepts_transfer')} />
           <Checkbox label="Card terminal" checked={form.accepts_card_terminal} onChange={set('accepts_card_terminal')} />
         </div>
+
+        {form.accepts_card_terminal && (
+          <div className="space-y-2 border-t border-gray-100 pt-3">
+            <p className="text-sm text-gray-500">Which cards does the terminal accept?</p>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="radio"
+                name="terminal-scope"
+                checked={!form.card_terminal_mexican_cards_only}
+                onChange={() => setForm((f) => ({ ...f, card_terminal_mexican_cards_only: false }))}
+              />
+              Any card (national or international)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="radio"
+                name="terminal-scope"
+                checked={form.card_terminal_mexican_cards_only}
+                onChange={() => setForm((f) => ({ ...f, card_terminal_mexican_cards_only: true }))}
+              />
+              Mexican cards only
+            </label>
+          </div>
+        )}
 
         {form.accepts_transfer && (
           <div className="space-y-2 border-t border-gray-100 pt-3">
