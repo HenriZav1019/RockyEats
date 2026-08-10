@@ -51,7 +51,7 @@ function RestaurantMenu() {
     return groups
   }, [items])
 
-  const inThisCart = cart.restaurantId === restaurantId
+  const inThisCart = !cart.restaurantId || cart.restaurantId === restaurantId
 
   if (loading) return <p className="px-4 py-8 text-center text-gray-500">{t('menu.loading')}</p>
 

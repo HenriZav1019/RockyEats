@@ -43,18 +43,17 @@ function CheckoutPage() {
     setError(null)
     setSubmitting(true)
 
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        restaurant_id: restaurantId,
-        mode: cart.mode,
-        payment_method: paymentMethod,
-        customer_name: name,
-        customer_phone: phone,
-        total,
-      })
-      .select()
-      .single()
+    const orderId = crypto.randomUUID()
+
+    const { error: orderError } = await supabase.from('orders').insert({
+      id: orderId,
+      restaurant_id: restaurantId,
+      mode: cart.mode,
+      payment_method: paymentMethod,
+      customer_name: name,
+      customer_phone: phone,
+      total,
+    })
 
     if (orderError) {
       setSubmitting(false)
@@ -64,7 +63,7 @@ function CheckoutPage() {
 
     const { error: itemsError } = await supabase.from('order_items').insert(
       cart.items.map((item) => ({
-        order_id: order.id,
+        order_id: orderId,
         menu_item_id: item.id,
         name_snapshot: item.name,
         price_snapshot: item.price,
@@ -74,13 +73,25 @@ function CheckoutPage() {
       })),
     )
 
-    setSubmitting(false)
-
     if (itemsError) {
+      setSubmitting(false)
       setError(itemsError.message)
       return
     }
 
+    const { data: orderNumber } = await supabase.rpc('get_order_number', { p_order_id: orderId })
+
+    setSubmitting(false)
+
+    const order = {
+      id: orderId,
+      order_number: orderNumber,
+      mode: cart.mode,
+      payment_method: paymentMethod,
+      customer_name: name,
+      customer_phone: phone,
+      total,
+    }
     const orderItemsSnapshot = cart.items
     const restaurantSnapshot = restaurant
     clearCart()

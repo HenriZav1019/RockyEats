@@ -43,7 +43,7 @@ export function CartProvider({ children }) {
       return {
         restaurantId: restaurant.id,
         restaurantName: restaurant.name,
-        mode: sameRestaurant ? prev.mode : null,
+        mode: !prev.restaurantId || sameRestaurant ? prev.mode : null,
         items,
       }
     })

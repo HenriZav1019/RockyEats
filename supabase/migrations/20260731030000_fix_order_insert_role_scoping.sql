@@ -1,0 +1,4 @@
+drop policy if exists "Anyone can place an order at an active restaurant that supports it" on orders;
+create policy "Anyone can place an order at an active restaurant that supports it" on orders for insert with check (exists (select 1 from restaurants r where r.id = orders.restaurant_id and r.is_active and ((orders.mode = 'dine_in' and r.supports_dine_in) or (orders.mode = 'delivery' and r.supports_delivery) or (orders.mode = 'pickup' and r.supports_pickup)) and ((orders.payment_method = 'cash' and r.accepts_cash) or (orders.payment_method = 'transfer' and r.accepts_transfer) or (orders.payment_method = 'card_terminal' and r.accepts_card_terminal))));
+drop policy if exists "Anyone can add line items to an order" on order_items;
+create policy "Anyone can add line items to an order" on order_items for insert with check (exists (select 1 from orders o where o.id = order_items.order_id));
