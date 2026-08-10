@@ -13,7 +13,7 @@ const PAYMENT_OPTIONS = [
 function CheckoutPage() {
   const { restaurantId } = useParams()
   const navigate = useNavigate()
-  const { cart, total, clearCart } = useCart()
+  const { cart, total } = useCart()
   const { t } = useLanguage()
 
   const [restaurant, setRestaurant] = useState(null)
@@ -99,7 +99,6 @@ function CheckoutPage() {
       replace: true,
       state: { order, orderItems: orderItemsSnapshot, restaurant: restaurantSnapshot },
     })
-    clearCart()
   }
 
   return (

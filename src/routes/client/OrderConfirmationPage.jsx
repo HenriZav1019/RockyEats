@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { supabase } from '../../lib/supabase.js'
 
@@ -30,7 +31,14 @@ function buildWhatsAppMessage(order, orderItems, total, restaurantName) {
 function OrderConfirmationPage() {
   const { state } = useLocation()
   const { t } = useLanguage()
+  const { clearCart } = useCart()
   const [bank, setBank] = useState({})
+
+  useEffect(() => {
+    if (!state?.order) return
+    clearCart()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.order?.id])
 
   useEffect(() => {
     if (state?.order?.payment_method !== 'transfer') return
