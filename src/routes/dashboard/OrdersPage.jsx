@@ -130,7 +130,7 @@ function OrdersPage() {
               <p className="text-sm text-gray-500">
                 {order.customer_phone} · {MODE_LABELS[order.mode]} · {PAYMENT_LABELS[order.payment_method]}
               </p>
-              {order.mode === 'delivery' && (
+              {order.mode === 'delivery' && order.delivery_street && (
                 <p className="mt-1 text-sm text-gray-700">
                   📍{' '}
                   {deliveryAddressLines(order).map((line, i) => (

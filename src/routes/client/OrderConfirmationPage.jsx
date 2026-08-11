@@ -29,7 +29,7 @@ function buildWhatsAppMessage(order, orderItems, total, restaurantName) {
     `${itemLines}\n\n` +
     `Total: $${total.toFixed(2)}`
 
-  if (order.mode === 'delivery') {
+  if (order.mode === 'delivery' && order.delivery_street) {
     message += `\n\n📍 Dirección:\n${buildDeliveryAddressLines(order).join('\n')}`
   }
 
@@ -146,7 +146,7 @@ function OrderConfirmationPage() {
         </div>
       </div>
 
-      {order.mode === 'delivery' && (
+      {order.mode === 'delivery' && order.delivery_street && (
         <div
           className="animate-fade-up mt-4 rounded-2xl border border-sunset-100 bg-white p-4 shadow-sm"
           style={{ animationDelay: '0.35s' }}

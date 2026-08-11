@@ -181,7 +181,7 @@ function QueuePage() {
               <p className="text-sm text-sand-200">{selectedOrder.customer_phone}</p>
             </div>
 
-            {selectedOrder.mode === 'delivery' && (
+            {selectedOrder.mode === 'delivery' && selectedOrder.delivery_street && (
               <div className="mt-3 border-t border-white/10 pt-3 text-sm text-sand-100">
                 <p className="font-medium text-sand-50">📍 Dirección</p>
                 {deliveryAddressLines(selectedOrder).map((line) => (
