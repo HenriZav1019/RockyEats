@@ -3,7 +3,7 @@ import { useCart } from '../../context/CartContext.jsx'
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext.jsx'
 import LanguagePicker from '../../components/LanguagePicker.jsx'
 import logo from '../../assets/rockyeats-logo.png'
-import wordmark from '../../assets/rockyeats-wordmark.png'
+import wordmark from '../../assets/rockyeats-wordmark-header.png'
 
 function ClientLayoutInner() {
   const { cart, itemCount, total } = useCart()
