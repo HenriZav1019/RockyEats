@@ -10,6 +10,7 @@ import RestaurantMenu from './routes/client/RestaurantMenu.jsx'
 import CartPage from './routes/client/CartPage.jsx'
 import CheckoutPage from './routes/client/CheckoutPage.jsx'
 import OrderConfirmationPage from './routes/client/OrderConfirmationPage.jsx'
+import TrackOrderPage from './routes/client/TrackOrderPage.jsx'
 
 import Login from './routes/auth/Login.jsx'
 
@@ -46,7 +47,8 @@ function App() {
               <Route path="/r/:restaurantId" element={<RestaurantMenu />} />
               <Route path="/r/:restaurantId/cart" element={<CartPage />} />
               <Route path="/r/:restaurantId/checkout" element={<CheckoutPage />} />
-              <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+              <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
+              <Route path="/track-order" element={<TrackOrderPage />} />
             </Route>
 
             <Route path="/login" element={<Login />} />

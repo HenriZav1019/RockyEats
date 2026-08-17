@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { supabase } from '../../lib/supabase.js'
+import { removePendingOrder } from '../../lib/pendingOrders.js'
+
+const TERMINAL_STATUSES = ['completed', 'cancelled']
 
 // This message goes TO the restaurant owner (a local Spanish-speaking business),
 // so it always stays in Spanish regardless of the customer's chosen UI language.
@@ -41,39 +44,91 @@ function buildWhatsAppMessage(order, orderItems, total, restaurantName) {
 }
 
 function OrderConfirmationPage() {
+  const { orderId } = useParams()
   const { state } = useLocation()
   const { t } = useLanguage()
   const { clearCart } = useCart()
   const [bank, setBank] = useState({})
+  const [fetched, setFetched] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const hasFreshState = state?.order?.id === orderId
 
   useEffect(() => {
-    if (!state?.order) return
+    if (!hasFreshState) return
     clearCart()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.order?.id])
+  }, [hasFreshState])
 
+  // Fallback path: router state is gone (app was closed and reopened, tab
+  // reloaded, link opened fresh) — re-fetch everything from the order id in
+  // the URL instead of showing "order not found".
   useEffect(() => {
-    if (state?.order?.payment_method !== 'transfer') return
+    if (hasFreshState || !orderId) return
+    let active = true
+    setLoading(true)
 
     supabase
-      .rpc('get_transfer_details', { p_order_id: state.order.id })
+      .rpc('get_order_confirmation', { p_order_id: orderId })
+      .then(({ data, error }) => {
+        if (!active) return
+        setLoading(false)
+        if (error || !data) return
+        setFetched({
+          order: data.order,
+          orderItems: data.order_items,
+          restaurant: data.restaurant,
+        })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [orderId, hasFreshState])
+
+  const resolved = hasFreshState ? state : fetched
+
+  useEffect(() => {
+    const status = resolved?.order?.status
+    const id = resolved?.order?.id
+    if (id && TERMINAL_STATUSES.includes(status)) removePendingOrder(id)
+  }, [resolved?.order?.id, resolved?.order?.status])
+
+  useEffect(() => {
+    if (resolved?.order?.payment_method !== 'transfer') return
+
+    supabase
+      .rpc('get_transfer_details', { p_order_id: resolved.order.id })
       .then(({ data }) => {
         if (data && data.length > 0) setBank(data[0])
       })
-  }, [state])
+  }, [resolved?.order?.id, resolved?.order?.payment_method])
 
-  if (!state?.order) {
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 text-center text-gray-500">
+        {t('confirm.loading')}
+      </div>
+    )
+  }
+
+  if (!resolved?.order) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <p className="text-gray-600">{t('confirm.notFound')}</p>
-        <Link to="/" className="mt-3 inline-block text-ocean-600 underline">
+        <Link to="/track-order" className="mt-3 inline-block text-ocean-600 underline">
+          {t('track.title')}
+        </Link>
+        <br />
+        <Link to="/" className="mt-2 inline-block text-ocean-600 underline">
           {t('confirm.backHome')}
         </Link>
       </div>
     )
   }
 
-  const { order, orderItems, restaurant } = state
+  const { order, orderItems, restaurant } = resolved
+  const status = order.status || 'submitted'
   const total = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
 
   const whatsappUrl =
@@ -103,6 +158,10 @@ function OrderConfirmationPage() {
 
         <p className="mt-4 font-display text-5xl font-extrabold tracking-wide text-sunset-600">
           #{order.order_number}
+        </p>
+
+        <p className="mt-2 inline-block rounded-full bg-ocean-100 px-3 py-1 text-xs font-semibold text-ocean-800">
+          {t('confirm.statusLabel')}: {t(`confirm.status.${status}`)}
         </p>
 
         <p className="mt-3 text-sm text-gray-600">{t(`confirm.mode.${order.mode}`)}</p>

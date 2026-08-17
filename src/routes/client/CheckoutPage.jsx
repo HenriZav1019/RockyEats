@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
+import { addPendingOrder } from '../../lib/pendingOrders.js'
 
 const PAYMENT_OPTIONS = [
   { key: 'cash', flag: 'accepts_cash', icon: '💵' },
@@ -121,7 +122,14 @@ function CheckoutPage() {
     const orderItemsSnapshot = cart.items
     const restaurantSnapshot = restaurant
 
-    navigate('/order-confirmation', {
+    addPendingOrder({
+      id: orderId,
+      orderNumber,
+      restaurantId,
+      restaurantName: restaurant?.name || cart.restaurantName,
+    })
+
+    navigate(`/order-confirmation/${orderId}`, {
       replace: true,
       state: { order, orderItems: orderItemsSnapshot, restaurant: restaurantSnapshot },
     })
