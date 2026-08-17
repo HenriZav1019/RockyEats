@@ -37,6 +37,17 @@ body {
   font-family: var(--font-body);
 }
 
+/* iOS/Android auto-zoom on input focus when font-size < 16px — bump it just
+   on mobile so form fields don't trigger a jarring zoom-in, while desktop
+   keeps the smaller text-sm sizing used throughout the design. */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 @keyframes pop-in {
   0% {
     transform: scale(0.5);
