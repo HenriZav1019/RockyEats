@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
+import HoursEditor from '../../components/HoursEditor.jsx'
+import { hoursErrors, normalizeHours } from '../../lib/hours.js'
 
 const emptyForm = {
   name: '',
@@ -17,6 +19,8 @@ const emptyForm = {
   accepts_card_terminal: false,
   card_terminal_mexican_cards_only: false,
   is_active: true,
+  opening_hours: null,
+  orders_paused: false,
   bank_name: '',
   account_holder: '',
   clabe: '',
@@ -70,6 +74,12 @@ function RestaurantFormPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
+
+    if (hoursErrors(form.opening_hours).length > 0) {
+      setError('Fix the opening hours before saving.')
+      return
+    }
+
     setSaving(true)
 
     const payload = {
@@ -87,6 +97,8 @@ function RestaurantFormPage() {
       accepts_card_terminal: form.accepts_card_terminal,
       card_terminal_mexican_cards_only: form.card_terminal_mexican_cards_only,
       is_active: form.is_active,
+      opening_hours: normalizeHours(form.opening_hours),
+      orders_paused: form.orders_paused,
     }
 
     const { data: savedRestaurant, error: saveError } = isNew
@@ -166,6 +178,19 @@ function RestaurantFormPage() {
           <Checkbox label="Pickup" checked={form.supports_pickup} onChange={set('supports_pickup')} />
           <Checkbox label="Own transport" checked={form.own_transport} onChange={set('own_transport')} />
         </div>
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="font-medium text-gray-900">Opening hours</h2>
+        <HoursEditor
+          value={form.opening_hours}
+          onChange={(hours) => setForm((f) => ({ ...f, opening_hours: hours }))}
+        />
+        <Checkbox
+          label="Orders paused (owner's quick switch)"
+          checked={form.orders_paused}
+          onChange={set('orders_paused')}
+        />
       </section>
 
       <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">

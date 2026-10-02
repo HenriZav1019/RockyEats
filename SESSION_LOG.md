@@ -4,6 +4,32 @@ Running log of what's been built, kept in the repo so it's readable from any dev
 
 ---
 
+## 2026-10-01 — Opening hours + pause switch (+ dashboard refresh fix)
+
+- Migration `20261001130000_opening_hours.sql` (run AFTER `20261001120000_place_order_and_lockdown.sql`): adds `restaurants.opening_hours` (jsonb, null = always open; missing day / [] = closed; close < open = past midnight; up to 4 slots/day, validated by a CHECK), `orders_paused` (owner's quick switch) and `timezone` (default `America/Hermosillo`, no DST).
+- `restaurant_is_open_at()` + a BEFORE INSERT trigger on `orders` refuse orders while closed/paused with `RE_RESTAURANT_CLOSED`. Owner column guard now also allows `opening_hours` and `orders_paused`.
+- `src/lib/hours.js` mirrors the DB logic for display (`getOpenStatus`, `describeStatus`, `useNow`); same 14 schedule cases tested in SQL and JS.
+- Customer: open/closed badge on cards (open first), closed/paused banner + no Add buttons on the menu, collapsible weekly hours, checkout disabled while closed.
+- Owner: "Pause orders / Resume orders" bar on the Orders page; weekly hours editor in Settings (split shifts, overnight, copy Monday to all). Admin restaurant form has the same editor. Settings deliberately does not save `orders_paused`, so it can't undo a live pause.
+- Fixed a pre-existing bug in `AuthContext`: refreshing any dashboard page bounced to Orders, because the profile check ran before the stored session was read.
+- Owner dashboard is still English (Queue page is Spanish); translating it is a separate task.
+
+## 2026-10-01 — Server-side ordering, permission lockdown, Turnstile
+
+**Why:** the browser used to insert `orders`/`order_items` itself, choosing its own prices, total, `status` and `payment_confirmed`. Anyone could place a $1 order or skip the payment gate into the bar/kitchen queues. Owners could also edit any column of their restaurant (e.g. re-activate it).
+
+**What changed:**
+- `place_order()` RPC (migration `20261001120000_place_order_and_lockdown.sql`) is now the only way to create an order. It prices items from `menu_items`, checks availability/mode/payment/address, forces `submitted` + unpaid, and writes order + items in one transaction (fixes empty orders and the realtime chime firing before items exist). Errors come back as `RE_*` codes, translated in `translations.js` (`error.*`).
+- Rate limits: 3 orders / phone (last 10 digits) / 10 min, 20 orders / restaurant / minute.
+- `p_expected_total`: if prices changed since the customer loaded the menu, the order is refused with `RE_PRICE_CHANGED` and checkout refreshes the cart (`CartContext.syncWithMenu`). Checkout also re-syncs on arrival and shows a notice.
+- Column guards (triggers): owners can only change logo + payment flags on `restaurants`; owners/staff only `status`/`payment_confirmed` on `orders`; staff only `item_status` on `order_items`. Admin and SQL editor unaffected.
+- `restaurant_payment_details` codified with explicit policies (admin manage, owner read own, no anon). Old public `restaurants.bank_account_details` column copied over and dropped.
+- Direct inserts into `orders`/`order_items` revoked; `order_exists()` dropped.
+- Turnstile: `supabase/functions/place-order` verifies the token, then calls `place_order()` with the service role. Frontend uses it only when `VITE_TURNSTILE_SITE_KEY` is set (`src/lib/placeOrder.js`, `TurnstileWidget.jsx`); otherwise it calls the RPC directly.
+- `supabase/pending/require_turnstile.sql`: run ONLY after Turnstile works live; removes direct RPC access so every order must pass Turnstile.
+
+**Tested** on local Postgres 16 + PostgREST with all migrations replayed: 27 attack/permission cases, full browser checkout (happy path, price change, sold-out, bad phone, English, confirmation reload), and the edge function with stubbed Turnstile.
+
 ## 2026-07-30 — Branding pass (PAUSED mid-work — pick up here)
 
 User provided 3 reference marketing images (a square badge logo, a wordmark-on-glow render, and a wide banner) and asked for the real RockyEats brand (navy / orange / teal, script "Rocky" + bold "EATS" wordmark, rock-arch/lighthouse sunset badge, Puerto Peñasco boardwalk photography) to actually appear on the site — mobile home screen styled like the badge image, desktop hero styled like the wide banner.

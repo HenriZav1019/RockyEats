@@ -65,6 +65,36 @@ export function CartProvider({ children }) {
       items: prev.items.map((i) => (i.id === itemId ? { ...i, notes } : i)),
     }))
 
+  // Brings cart lines in line with the restaurant's current menu: updates
+  // names/prices/stations and drops items that were removed or sold out.
+  // Returns what changed so the UI can tell the customer.
+  const syncWithMenu = (menuItems) => {
+    const byId = new Map(menuItems.map((m) => [m.id, m]))
+    const removed = []
+    const repriced = []
+    const items = []
+    for (const line of cart.items) {
+      const current = byId.get(line.id)
+      if (!current || !current.available) {
+        removed.push(line.name)
+        continue
+      }
+      const price = Number(current.price)
+      if (price !== Number(line.price)) repriced.push(current.name)
+      items.push({ ...line, name: current.name, price, station: current.station || 'kitchen' })
+    }
+    const changed =
+      removed.length > 0 ||
+      items.some((i) => {
+        const before = cart.items.find((b) => b.id === i.id)
+        return before.name !== i.name || Number(before.price) !== i.price || before.station !== i.station
+      })
+    if (changed) {
+      setCart((prev) => (items.length === 0 ? emptyCart : { ...prev, items }))
+    }
+    return { removed, repriced }
+  }
+
   const setMode = (mode) => setCart((prev) => ({ ...prev, mode }))
 
   const clearCart = () => setCart(emptyCart)
@@ -74,7 +104,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider
-      value={{ cart, addItem, updateQuantity, updateNotes, setMode, clearCart, total, itemCount }}
+      value={{ cart, addItem, updateQuantity, updateNotes, syncWithMenu, setMode, clearCart, total, itemCount }}
     >
       {children}
     </CartContext.Provider>

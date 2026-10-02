@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useLanguage } from '../../context/LanguageContext.jsx'
+import { getOpenStatus, useNow } from '../../lib/hours.js'
+import { OpenStatusBadge } from '../../components/OpenStatus.jsx'
 import heroMobile from '../../assets/hero-mobile.webp'
 import heroDesktop from '../../assets/hero-desktop.webp'
 
@@ -15,6 +17,16 @@ function RestaurantList() {
   const { t } = useLanguage()
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
+  const now = useNow()
+
+  // Open restaurants first; within each group keep alphabetical order.
+  const withStatus = useMemo(
+    () =>
+      restaurants
+        .map((r) => ({ ...r, status: getOpenStatus(r, now) }))
+        .sort((a, b) => Number(b.status.open) - Number(a.status.open)),
+    [restaurants, now],
+  )
 
   useEffect(() => {
     supabase
@@ -63,12 +75,14 @@ function RestaurantList() {
         )}
 
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {restaurants.map((r, index) => (
+          {withStatus.map((r, index) => (
             <Link
               key={r.id}
               to={`/r/${r.id}`}
               style={{ animationDelay: `${index * 0.08}s` }}
-              className="animate-fade-up group overflow-hidden rounded-2xl border border-sunset-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]"
+              className={`animate-fade-up group overflow-hidden rounded-2xl border border-sunset-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl active:scale-[0.98] ${
+                r.status.open ? '' : 'opacity-75 grayscale-[35%]'
+              }`}
             >
               {r.logo_url ? (
                 <div className="flex h-24 items-center justify-center bg-white">
@@ -82,6 +96,7 @@ function RestaurantList() {
                 </div>
               )}
               <div className="p-4">
+                <OpenStatusBadge status={r.status} className="mb-2" />
                 {r.address && <p className="text-sm text-gray-500">{r.address}</p>}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {MODE_BADGES.filter((b) => r[b.key]).map((b) => (

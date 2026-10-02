@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
+import HoursEditor from '../../components/HoursEditor.jsx'
+import { hoursErrors, normalizeHours } from '../../lib/hours.js'
 
 function Checkbox({ label, checked, onChange }) {
   return (
@@ -20,6 +22,7 @@ function SettingsPage() {
     accepts_card_terminal: false,
     card_terminal_mexican_cards_only: false,
   })
+  const [openingHours, setOpeningHours] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -28,11 +31,12 @@ function SettingsPage() {
   useEffect(() => {
     supabase
       .from('restaurants')
-      .select('logo_url, accepts_cash, accepts_transfer, accepts_card_terminal, card_terminal_mexican_cards_only')
+      .select('logo_url, accepts_cash, accepts_transfer, accepts_card_terminal, card_terminal_mexican_cards_only, opening_hours')
       .eq('id', profile.restaurant_id)
       .single()
       .then(({ data }) => {
         setLogoUrl(data?.logo_url || '')
+        setOpeningHours(data?.opening_hours ?? null)
         if (data) {
           setPayment({
             accepts_cash: data.accepts_cash,
@@ -51,11 +55,17 @@ function SettingsPage() {
     e.preventDefault()
     setError(null)
     setSaved(false)
+
+    if (hoursErrors(openingHours).length > 0) {
+      setError('Fix the opening hours above before saving.')
+      return
+    }
+
     setSaving(true)
 
     const { error: updateError } = await supabase
       .from('restaurants')
-      .update({ logo_url: logoUrl || null, ...payment })
+      .update({ logo_url: logoUrl || null, ...payment, opening_hours: normalizeHours(openingHours) })
       .eq('id', profile.restaurant_id)
 
     setSaving(false)
@@ -136,6 +146,15 @@ function SettingsPage() {
             </label>
           </div>
         )}
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="font-medium text-gray-900">Opening hours</h2>
+        <p className="text-sm text-gray-500">
+          Outside these hours customers can still see your menu, but can't place orders. To stop
+          orders right now (kitchen slammed, ran out of gas), use “Pause orders” on the Orders page.
+        </p>
+        <HoursEditor value={openingHours} onChange={setOpeningHours} />
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

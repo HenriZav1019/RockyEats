@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { playChime } from '../../lib/chime.js'
+import OrderingStatusBar from './OrderingStatusBar.jsx'
 
 const NEW_ORDER_HIGHLIGHT_MS = 15000
 
@@ -100,14 +101,22 @@ function OrdersPage() {
     await supabase.from('orders').update({ payment_confirmed: !current }).eq('id', orderId)
   }
 
+  const statusBar = <OrderingStatusBar restaurantId={profile.restaurant_id} />
+
   if (loading) return <p className="text-gray-500">Loading orders…</p>
 
   if (orders.length === 0) {
-    return <p className="text-gray-500">No orders yet.</p>
+    return (
+      <div>
+        {statusBar}
+        <p className="text-gray-500">No orders yet.</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
+      {statusBar}
       {orders.map((order) => (
         <div
           key={order.id}

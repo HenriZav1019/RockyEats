@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { addPendingOrder } from '../../lib/pendingOrders.js'
+import { placeOrder, TURNSTILE_SITE_KEY } from '../../lib/placeOrder.js'
+import TurnstileWidget from '../../components/TurnstileWidget.jsx'
+import { getOpenStatus, useNow } from '../../lib/hours.js'
 
 const PAYMENT_OPTIONS = [
   { key: 'cash', flag: 'accepts_cash', icon: '💵' },
@@ -14,8 +17,10 @@ const PAYMENT_OPTIONS = [
 function CheckoutPage() {
   const { restaurantId } = useParams()
   const navigate = useNavigate()
-  const { cart, total } = useCart()
-  const { t } = useLanguage()
+  const { cart, total, syncWithMenu } = useCart()
+  const { language, t } = useLanguage()
+  const turnstileRef = useRef(null)
+  const now = useNow()
 
   const [restaurant, setRestaurant] = useState(null)
   const [name, setName] = useState('')
@@ -27,8 +32,10 @@ function CheckoutPage() {
   const [deliveryIsHotelOrCondo, setDeliveryIsHotelOrCondo] = useState(false)
   const [deliveryUnitNumber, setDeliveryUnitNumber] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [cartNotice, setCartNotice] = useState(null)
 
   useEffect(() => {
     supabase
@@ -39,11 +46,38 @@ function CheckoutPage() {
       .then(({ data }) => setRestaurant(data || null))
   }, [restaurantId])
 
+  // Re-checks the cart against the live menu (prices, sold-out items) and
+  // tells the customer if anything changed since they added it.
+  const refreshCartFromMenu = async () => {
+    const ids = cart.items.map((i) => i.id)
+    if (ids.length === 0) return
+    const { data } = await supabase
+      .from('menu_items')
+      .select('id, name, price, available, station')
+      .eq('restaurant_id', restaurantId)
+      .in('id', ids)
+    if (!data) return
+    const { removed, repriced } = syncWithMenu(data)
+    const notices = []
+    if (removed.length > 0) notices.push(`${t('checkout.itemsRemoved')} ${removed.join(', ')}`)
+    if (repriced.length > 0) notices.push(`${t('checkout.pricesUpdated')} ${repriced.join(', ')}`)
+    setCartNotice(notices.length > 0 ? notices.join(' · ') : null)
+  }
+
+  useEffect(() => {
+    refreshCartFromMenu()
+    // Only on arrival at checkout; later refreshes happen after a failed submit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantId])
+
   if (cart.restaurantId !== restaurantId || cart.items.length === 0) {
     return <Navigate to={`/r/${restaurantId}`} replace />
   }
 
   const availablePayments = restaurant ? PAYMENT_OPTIONS.filter((p) => restaurant[p.flag]) : []
+  const needsTurnstile = Boolean(TURNSTILE_SITE_KEY)
+  // Until the restaurant row loads, assume open; the database refuses closed orders anyway.
+  const openStatus = restaurant ? getOpenStatus(restaurant, now) : { open: true }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -53,85 +87,64 @@ function CheckoutPage() {
       setError(t('checkout.noModeError'))
       return
     }
+    if (needsTurnstile && !turnstileToken) {
+      setError(t('error.RE_CAPTCHA_FAILED'))
+      return
+    }
 
     setSubmitting(true)
 
-    const orderId = crypto.randomUUID()
-
-    const deliveryFields =
-      cart.mode === 'delivery'
-        ? {
-            delivery_street: deliveryStreet,
-            delivery_number: deliveryNumber,
-            delivery_between_streets: deliveryBetweenStreets || null,
-            delivery_reference: deliveryReference || null,
-            delivery_is_hotel_or_condo: deliveryIsHotelOrCondo,
-            delivery_unit_number: deliveryIsHotelOrCondo ? deliveryUnitNumber : null,
-          }
-        : {}
-
-    const { error: orderError } = await supabase.from('orders').insert({
-      id: orderId,
-      restaurant_id: restaurantId,
-      mode: cart.mode,
-      payment_method: paymentMethod,
-      customer_name: name,
-      customer_phone: phone,
-      total,
-      ...deliveryFields,
-    })
-
-    if (orderError) {
-      setSubmitting(false)
-      setError(orderError.message)
-      return
-    }
-
-    const { error: itemsError } = await supabase.from('order_items').insert(
-      cart.items.map((item) => ({
-        order_id: orderId,
-        menu_item_id: item.id,
-        name_snapshot: item.name,
-        price_snapshot: item.price,
-        station_snapshot: item.station || 'kitchen',
-        quantity: item.quantity,
-        notes: item.notes || null,
-      })),
+    const result = await placeOrder(
+      {
+        p_restaurant_id: restaurantId,
+        p_mode: cart.mode,
+        p_payment_method: paymentMethod,
+        p_customer_name: name,
+        p_customer_phone: phone,
+        p_items: cart.items.map((item) => ({
+          menu_item_id: item.id,
+          quantity: item.quantity,
+          notes: item.notes || null,
+        })),
+        p_delivery:
+          cart.mode === 'delivery'
+            ? {
+                street: deliveryStreet,
+                number: deliveryNumber,
+                between_streets: deliveryBetweenStreets || null,
+                reference: deliveryReference || null,
+                is_hotel_or_condo: deliveryIsHotelOrCondo,
+                unit_number: deliveryIsHotelOrCondo ? deliveryUnitNumber : null,
+              }
+            : null,
+        p_expected_total: Math.round(total * 100) / 100,
+      },
+      turnstileToken,
     )
 
-    if (itemsError) {
+    if (!result.data) {
       setSubmitting(false)
-      setError(itemsError.message)
+      // Turnstile tokens are single-use, so get a fresh one for the retry.
+      turnstileRef.current?.reset()
+      if (result.code === 'RE_ITEM_UNAVAILABLE' || result.code === 'RE_PRICE_CHANGED') {
+        await refreshCartFromMenu()
+      }
+      setError(t(`error.${result.code}`))
       return
     }
 
-    const { data: orderNumber } = await supabase.rpc('get_order_number', { p_order_id: orderId })
-
-    setSubmitting(false)
-
-    const order = {
-      id: orderId,
-      order_number: orderNumber,
-      mode: cart.mode,
-      payment_method: paymentMethod,
-      customer_name: name,
-      customer_phone: phone,
-      total,
-      ...deliveryFields,
-    }
-    const orderItemsSnapshot = cart.items
-    const restaurantSnapshot = restaurant
+    const { order, order_items: orderItems, restaurant: orderRestaurant } = result.data
 
     addPendingOrder({
-      id: orderId,
-      orderNumber,
+      id: order.id,
+      orderNumber: order.order_number,
       restaurantId,
-      restaurantName: restaurant?.name || cart.restaurantName,
+      restaurantName: orderRestaurant?.name || cart.restaurantName,
     })
 
-    navigate(`/order-confirmation/${orderId}`, {
+    navigate(`/order-confirmation/${order.id}`, {
       replace: true,
-      state: { order, orderItems: orderItemsSnapshot, restaurant: restaurantSnapshot },
+      state: { order, orderItems, restaurant: { ...restaurant, ...orderRestaurant } },
     })
   }
 
@@ -298,11 +311,32 @@ function CheckoutPage() {
           </div>
         </div>
 
+        {!openStatus.open && (
+          <p className="rounded-lg bg-gray-100 p-3 text-sm font-medium text-gray-700">
+            {openStatus.reason === 'paused' ? t('hours.pausedBanner') : t('hours.closedBanner')}
+          </p>
+        )}
+
+        {cartNotice && (
+          <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{cartNotice}</p>
+        )}
+
+        {needsTurnstile && (
+          <TurnstileWidget
+            ref={turnstileRef}
+            siteKey={TURNSTILE_SITE_KEY}
+            language={language}
+            onToken={setTurnstileToken}
+          />
+        )}
+
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <button
           type="submit"
-          disabled={submitting || !paymentMethod || !cart.mode}
+          disabled={
+            submitting || !paymentMethod || !cart.mode || !openStatus.open || (needsTurnstile && !turnstileToken)
+          }
           className="w-full rounded-full bg-sunset-500 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-sunset-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? t('checkout.sending') : t('checkout.confirm')}

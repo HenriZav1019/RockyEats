@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
+import { getOpenStatus, todayKey, useNow } from '../../lib/hours.js'
+import { OpenStatusBadge, WeeklyHours } from '../../components/OpenStatus.jsx'
 
 const MODES = [
   { key: 'dine_in', flag: 'supports_dine_in', icon: '🍽️' },
@@ -19,6 +21,7 @@ function RestaurantMenu() {
   const [restaurant, setRestaurant] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const now = useNow()
 
   useEffect(() => {
     Promise.all([
@@ -67,6 +70,7 @@ function RestaurantMenu() {
   }
 
   const activeMode = inThisCart ? cart.mode : null
+  const status = getOpenStatus(restaurant, now)
 
   return (
     <div className="pb-28">
@@ -77,10 +81,16 @@ function RestaurantMenu() {
         <div className="relative mx-auto max-w-3xl text-center">
           <h1 className="font-display text-3xl font-extrabold drop-shadow-sm">{restaurant.name}</h1>
           {restaurant.address && <p className="mt-1 text-sunset-50">{restaurant.address}</p>}
+          <OpenStatusBadge status={status} className="mt-3 shadow-sm" />
         </div>
       </section>
 
       <section className="animate-fade-up mx-auto max-w-3xl px-4 py-5" style={{ animationDelay: '0.1s' }}>
+        {!status.open && (
+          <p className="mb-4 rounded-xl bg-gray-100 p-3 text-sm font-medium text-gray-700">
+            {status.reason === 'paused' ? t('hours.pausedBanner') : t('hours.closedBanner')}
+          </p>
+        )}
         <p className="font-display text-sm font-semibold text-ocean-900">{t('menu.howWouldYouLike')}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {availableModes.map((m) => (
@@ -98,6 +108,7 @@ function RestaurantMenu() {
             </button>
           ))}
         </div>
+        <WeeklyHours hours={restaurant.opening_hours} todayKey={todayKey(restaurant.timezone, now)} />
       </section>
 
       <section className="mx-auto max-w-3xl space-y-8 px-4">
@@ -128,7 +139,7 @@ function RestaurantMenu() {
                       )}
                     </div>
 
-                    {item.available && (
+                    {item.available && status.open && (
                       <button
                         type="button"
                         onClick={() => addItem(restaurant, item)}
