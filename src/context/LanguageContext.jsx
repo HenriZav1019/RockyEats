@@ -8,7 +8,10 @@ export function LanguageProvider({ children }) {
   const [language, setLanguageState] = useState(() => localStorage.getItem(STORAGE_KEY))
 
   useEffect(() => {
-    if (language) localStorage.setItem(STORAGE_KEY, language)
+    if (language) {
+      localStorage.setItem(STORAGE_KEY, language)
+      document.documentElement.lang = language
+    }
   }, [language])
 
   const setLanguage = (lang) => setLanguageState(lang)

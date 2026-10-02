@@ -4,6 +4,16 @@ Running log of what's been built, kept in the repo so it's readable from any dev
 
 ---
 
+## 2026-10-02 — Customer-side redesign (mobile first)
+
+- Direction: beach-town app with hand-painted-sign (rotulación) energy. One typeface, Bricolage Grotesque (self-hosted via `@fontsource-variable/bricolage-grotesque`, Google Fonts removed), condensed + extra-bold for names, prices and the order number. Tokens in `src/index.css`: `sea-*` (navy ink), `sun-*` (orange actions), `tide-*` (teal = open/success), `mango-400`, `chili-500`, `salt` page bg. Icons from `lucide-react` replace the emoji.
+- Home: compact header (tight-cropped wordmark `rockyeats-wordmark-tight.webp`), striped-sunset hero (`components/Sunset.jsx`, the one load animation), search that also matches dish names (accent-insensitive), filters for dine-in / delivery / pickup / open now, restaurants as painted-sign rows (`signColors()` in `lib/format.js`; closed = neutral grey).
+- Menu: segmented order-type picker (auto-selected when only one), sticky category tabs with scroll-spy (food before drinks), +/- steppers on each item, full-width orange cart bar; asks for the order type before going to the cart.
+- Cart/checkout: shared primitives in `components/ui.jsx` (Field, PrimaryButton, BottomBar, Notice). Notes behind "Agregar nota", payment tiles, summary, sticky confirm button with total; missing payment now shows an error instead of a disabled button.
+- Confirmation: ticket-style order number, live progress (polls `get_order_confirmation` every 20 s until completed/cancelled), copy button for the CLABE.
+- Fixed: the "switch restaurant?" prompt was English-only and could show twice (it ran inside a state updater).
+- Owner dashboard and admin untouched (still English).
+
 ## 2026-10-01 — Opening hours + pause switch (+ dashboard refresh fix)
 
 - Migration `20261001130000_opening_hours.sql` (run AFTER `20261001120000_place_order_and_lockdown.sql`): adds `restaurants.opening_hours` (jsonb, null = always open; missing day / [] = closed; close < open = past midnight; up to 4 slots/day, validated by a CHECK), `orders_paused` (owner's quick switch) and `timezone` (default `America/Hermosillo`, no DST).

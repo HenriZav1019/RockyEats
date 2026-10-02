@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Baloo 2", ui-rounded, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  /* One family, two voices: condensed + heavy for signage, normal width for reading. */
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* Customer-facing palette: Sea of Cortez at dusk, hand-painted sign colors. */
+  --color-sea-950: #08202d;  /* ink, headers */
+  --color-sea-900: #0d2c3d;
+  --color-sea-800: #15405a;
+  --color-sea-600: #2d6a8a;
+  --color-sun-500: #ff6a2b;  /* primary action */
+  --color-sun-600: #e9541a;
+  --color-sun-100: #ffe7d9;
+  --color-mango-400: #ffb627;
+  --color-tide-500: #0fa394; /* open, success */
+  --color-tide-100: #d4f3ee;
+  --color-chili-500: #d7263d; /* sold out, errors */
+  --color-salt: #f4f7f6;     /* page background: cool, bright for outdoor reading */
 
   --color-sunset-50: #fff8f0;
   --color-sunset-100: #ffedd8;
@@ -35,6 +50,50 @@
 
 body {
   font-family: var(--font-body);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sign-painter voice: condensed, heavy, tight. */
+@utility condensed {
+  font-stretch: 78%;
+  letter-spacing: -0.01em;
+}
+
+/* Horizontal scrollers (category tabs, mode filters) without a visible bar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-mango-400);
+  outline-offset: 2px;
+}
+
+/* The one orchestrated motion: the hero sun settles into the sea on load. */
+@keyframes sun-set {
+  from {
+    transform: translateY(-18%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.animate-sun-set {
+  animation: sun-set 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* iOS/Android auto-zoom on input focus when font-size < 16px — bump it just

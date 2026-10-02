@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { addPendingOrder } from '../../lib/pendingOrders.js'
+import { BackLink, Field, Notice, PageTitle, PrimaryButton, inputClass } from '../../components/ui.jsx'
 
 function TrackOrderPage() {
   const { t } = useLanguage()
@@ -42,47 +43,42 @@ function TrackOrderPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-10">
-      <h1 className="font-display text-2xl font-bold text-ocean-900">{t('track.title')}</h1>
-      <p className="mt-1 text-sm text-gray-500">{t('track.subtitle')}</p>
+    <div className="mx-auto max-w-3xl px-4 pb-16 pt-3">
+      <BackLink to="/">{t('menu.back')}</BackLink>
+      <PageTitle sub={t('track.subtitle')}>{t('track.title')}</PageTitle>
 
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4 rounded-xl border border-sunset-100 bg-white p-4 shadow-sm">
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="order-number">
-            {t('track.orderNumber')}
-          </label>
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <Field id="order-number" label={t('track.orderNumber')}>
           <input
             id="order-number"
             required
             placeholder="A1234"
+            autoCapitalize="characters"
             value={orderNumber}
             onChange={(e) => setOrderNumber(e.target.value)}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-ocean-500 focus:outline-none"
+            className={`${inputClass} condensed text-xl font-bold uppercase tracking-wide`}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="track-phone">
-            {t('track.phone')}
-          </label>
+        </Field>
+        <Field id="track-phone" label={t('track.phone')}>
           <input
             id="track-phone"
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             required
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-ocean-500 focus:outline-none"
+            className={inputClass}
           />
-        </div>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-full bg-sunset-500 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-sunset-600 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        </Field>
+        {error && (
+          <div role="alert">
+            <Notice tone="error">{error}</Notice>
+          </div>
+        )}
+        <PrimaryButton type="submit" disabled={submitting} className="justify-center">
           {submitting ? t('track.searching') : t('track.find')}
-        </button>
+        </PrimaryButton>
       </form>
     </div>
   )

@@ -20,15 +20,16 @@ export function CartProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cart))
   }, [cart])
 
-  const addItem = (restaurant, item) => {
+  // confirmSwitch(fromName, toName) -> boolean: asks before replacing a cart
+  // from another restaurant (the caller supplies the translated prompt).
+  const addItem = (restaurant, item, confirmSwitch) => {
+    if (cart.restaurantId && cart.restaurantId !== restaurant.id && cart.items.length > 0) {
+      const ask =
+        confirmSwitch ||
+        ((from, to) => window.confirm(`Your cart has items from ${from}. Start a new order at ${to}?`))
+      if (!ask(cart.restaurantName, restaurant.name)) return
+    }
     setCart((prev) => {
-      if (prev.restaurantId && prev.restaurantId !== restaurant.id && prev.items.length > 0) {
-        const proceed = window.confirm(
-          `Your cart has items from ${prev.restaurantName}. Start a new order at ${restaurant.name} and clear the current cart?`,
-        )
-        if (!proceed) return prev
-      }
-
       const sameRestaurant = prev.restaurantId === restaurant.id
       const existingItems = sameRestaurant ? prev.items : []
       const existing = existingItems.find((i) => i.id === item.id)

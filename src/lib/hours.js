@@ -81,17 +81,21 @@ export function getOpenStatus(restaurant, date = new Date()) {
   return { open: false, reason: 'schedule', alwaysOpen, closesAt: null, nextOpen }
 }
 
-// Short human label, e.g. "Abierto · cierra 22:00" / "Cerrado · abre mañana 08:00".
+// Short human label: "Abierto hasta las 22:00" / "Abre el viernes a las 18:00".
 export function describeStatus(status, t) {
   if (status.reason === 'paused') return t('hours.paused')
   if (status.open) {
-    return status.closesAt ? `${t('hours.openNow')} · ${t('hours.closesAt')} ${status.closesAt}` : t('hours.openNow')
+    return status.closesAt ? `${t('hours.openUntil')} ${status.closesAt}` : t('hours.openNow')
   }
   if (!status.nextOpen) return t('hours.closedNow')
   const { daysAhead, dayKey, time } = status.nextOpen
   const when =
-    daysAhead === 0 ? t('hours.today') : daysAhead === 1 ? t('hours.tomorrow') : t(`day.${dayKey}`)
-  return `${t('hours.closedNow')} · ${t('hours.opens')} ${when} ${time}`
+    daysAhead === 0
+      ? t('hours.today')
+      : daysAhead === 1
+        ? t('hours.tomorrow')
+        : `${t('hours.onDay')} ${t(`day.${dayKey}`)}`.trim()
+  return `${t('hours.opens')} ${when} ${t('hours.at')} ${time}`
 }
 
 // Re-render every minute so open/closed labels stay current on an idle page.
