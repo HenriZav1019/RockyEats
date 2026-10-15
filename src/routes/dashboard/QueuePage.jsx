@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChefHat, CircleAlert, Clock, MapPin, Martini, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { playChime } from '../../lib/chime.js'
+import { announceNewOrders } from '../../lib/alerts.js'
+import { useLiveOrders } from '../../lib/liveOrders.js'
 import {
   MODE_LABEL,
   NEXT_STEP,
@@ -73,9 +74,10 @@ function QueuePage() {
       .order('created_at', { ascending: true })
     const list = data || []
     if (knownIds.current) {
-      const arrived = list.filter((o) => !knownIds.current.has(o.id)).map((o) => o.id)
+      const arrivedOrders = list.filter((o) => !knownIds.current.has(o.id))
+      const arrived = arrivedOrders.map((o) => o.id)
       if (arrived.length) {
-        playChime()
+        announceNewOrders(arrivedOrders)
         setNewOrderIds((prev) => new Set([...prev, ...arrived]))
         arrived.forEach((id) =>
           setTimeout(
@@ -95,17 +97,8 @@ function QueuePage() {
 
   useEffect(() => {
     fetchOrders()
-    const channel = supabase
-      .channel('queue-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${profile.restaurant_id}` }, () => fetchOrders())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_items' }, () => fetchOrders())
-      .subscribe()
-    const poll = setInterval(fetchOrders, 45000)
-    return () => {
-      supabase.removeChannel(channel)
-      clearInterval(poll)
-    }
-  }, [fetchOrders, profile.restaurant_id])
+  }, [fetchOrders])
+  const live = useLiveOrders({ restaurantId: profile.restaurant_id, onChange: fetchOrders })
 
   const selected = orders.find((o) => o.id === selectedId) || null
 
@@ -120,7 +113,7 @@ function QueuePage() {
 
   return (
     <div>
-      <ScreenHeader title="Fila" now={now}>
+      <ScreenHeader title="Fila" now={now} live={live}>
         <span className="text-lg font-bold text-white/70">{orders.length} en curso</span>
       </ScreenHeader>
 

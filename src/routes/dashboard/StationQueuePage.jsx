@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, CircleAlert, Clock, RotateCcw } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { playChime } from '../../lib/chime.js'
+import { announceNewOrders } from '../../lib/alerts.js'
+import { useLiveOrders } from '../../lib/liveOrders.js'
 import { MODE_LABEL, formatWait, minutesSince, useTick, waitTone } from '../../lib/staff.js'
 import ModeIcon from '../../components/ModeIcon.jsx'
 import { ScreenHeader, WAIT_BORDER, WAIT_TEXT } from '../../components/ScreenTools.jsx'
@@ -94,7 +95,7 @@ function StationQueuePage({ station }) {
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('id, order_number, mode, status, customer_name, payment_method, created_at, order_items(*)')
+      .select('id, order_number, mode, status, customer_name, payment_method, total, created_at, order_items(*)')
       .eq('restaurant_id', profile.restaurant_id)
       .in('status', ['submitted', 'confirmed', 'preparing', 'ready'])
       .or('payment_confirmed.eq.true,payment_method.eq.card_terminal')
@@ -105,9 +106,10 @@ function StationQueuePage({ station }) {
       .filter((o) => o.order_items.length > 0)
 
     if (knownIds.current) {
-      const arrived = relevant.filter((o) => !knownIds.current.has(o.id)).map((o) => o.id)
+      const arrivedOrders = relevant.filter((o) => !knownIds.current.has(o.id))
+      const arrived = arrivedOrders.map((o) => o.id)
       if (arrived.length) {
-        playChime()
+        announceNewOrders(arrivedOrders)
         setNewOrderIds((prev) => new Set([...prev, ...arrived]))
         arrived.forEach((id) =>
           setTimeout(
@@ -128,17 +130,8 @@ function StationQueuePage({ station }) {
 
   useEffect(() => {
     fetchOrders()
-    const channel = supabase
-      .channel(`station-queue-${station}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${profile.restaurant_id}` }, () => fetchOrders())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => fetchOrders())
-      .subscribe()
-    const poll = setInterval(fetchOrders, 45000) // backstop for flaky kitchen wifi
-    return () => {
-      supabase.removeChannel(channel)
-      clearInterval(poll)
-    }
-  }, [fetchOrders, profile.restaurant_id, station])
+  }, [fetchOrders])
+  const live = useLiveOrders({ restaurantId: profile.restaurant_id, onChange: fetchOrders, itemEvents: '*' })
 
   const toggleItem = async (item, itemStatus) => {
     setOrders((prev) =>
@@ -158,7 +151,7 @@ function StationQueuePage({ station }) {
 
   return (
     <div>
-      <ScreenHeader title={STATION_TITLE[station]} now={now}>
+      <ScreenHeader title={STATION_TITLE[station]} now={now} live={live}>
         <span className="text-lg font-bold text-white/70">
           {pending.length} {pending.length === 1 ? 'pendiente' : 'pendientes'}
         </span>

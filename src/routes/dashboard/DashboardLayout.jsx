@@ -4,6 +4,7 @@ import { BarChart3, ClipboardList, LayoutGrid, LogOut, Settings, UtensilsCrossed
 import { useAuth } from '../../context/AuthContext.jsx'
 import { supabase } from '../../lib/supabase.js'
 import wordmark from '../../assets/rockyeats-wordmark-tight.webp'
+import { unlockAudio } from '../../lib/chime.js'
 
 const STATION_HOME = { bar_staff: '/dashboard/queue/bar', kitchen_staff: '/dashboard/queue/kitchen' }
 
@@ -20,6 +21,18 @@ function DashboardLayout() {
   const location = useLocation()
   const [restaurant, setRestaurant] = useState(null)
   const stationHome = STATION_HOME[profile.role]
+
+  // Browsers mute audio until the first tap. Unlock on any tap in the
+  // dashboard so the new-order chime works without hunting for a button.
+  useEffect(() => {
+    const unlock = () => unlockAudio()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
 
   useEffect(() => {
     supabase

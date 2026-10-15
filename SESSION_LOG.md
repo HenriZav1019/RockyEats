@@ -4,6 +4,13 @@ Running log of what's been built, kept in the repo so it's readable from any dev
 
 ---
 
+## 2026-10-14 — Fix: new orders not appearing live on staff screens
+
+- Cause: each staff screen subscribed to `orders` and `order_items` on ONE Realtime channel. Supabase joins a channel's listeners as a unit, so while `order_items` wasn't in the realtime publication (migration `20261014120000` not yet run) the whole channel failed silently and `orders` events stopped too. Screens only updated on the 45-60 s polling backstop or a manual refresh.
+- Fix: `src/lib/liveOrders.js` (`useLiveOrders`) gives each table its own channel, reports 'live' / 'connecting' / 'polling', polls every 20 s while live and every 8 s if Realtime is down, and refreshes immediately when the screen regains focus/visibility or the network comes back. Used by Pedidos, Fila, Cocina/Bar. Screens show an "En vivo" badge.
+- Alerts: `src/lib/alerts.js` + `AlertsButton` ("Activar sonido y avisos"): unlocks the chime and asks for system notification permission; new orders trigger a system notification when the tab is in the background (desktop/tablet browsers). The dashboard also unlocks audio on the first tap anywhere.
+- Verified with a local stand-in Realtime server (Phoenix protocol, Postgres NOTIFY): before the fix a new order never arrived without refresh; after it, ~0.2-0.6 s live, ~6 s with Realtime fully down.
+
 ## 2026-10-14 — Staff side redesign (dashboard, kitchen/bar, admin, login), Spanish
 
 - Same tokens as the customer app. Shared pieces: `components/staff.jsx` (PageHeader, Panel, Button, Toggle, Segmented, StatusPill, EmptyState), `components/ScreenTools.jsx` (dark screen header with clock + "Activar sonido"), `lib/staff.js` (Spanish labels, NEXT_STEP per status, wait-time tones 15/25 min, WhatsApp number with +52 default). Staff side is Spanish only.

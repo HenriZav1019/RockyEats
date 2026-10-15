@@ -3,7 +3,9 @@ import { useOutletContext } from 'react-router-dom'
 import { Banknote, Check, ChefHat, CircleAlert, Clock, MapPin, MessageCircle, Phone, Martini, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { playChime } from '../../lib/chime.js'
+import { announceNewOrders } from '../../lib/alerts.js'
+import { useLiveOrders } from '../../lib/liveOrders.js'
+import { AlertsButton, LiveBadge } from '../../components/ScreenTools.jsx'
 import { formatMoney } from '../../lib/format.js'
 import {
   ACTIVE_STATUSES,
@@ -250,9 +252,10 @@ function OrdersPage() {
     const list = data || []
     // Highlight + chime for orders that weren't here on the last load.
     if (knownIds.current) {
-      const arrived = list.filter((o) => !knownIds.current.has(o.id)).map((o) => o.id)
+      const arrivedOrders = list.filter((o) => !knownIds.current.has(o.id))
+      const arrived = arrivedOrders.map((o) => o.id)
       if (arrived.length) {
-        playChime()
+        announceNewOrders(arrivedOrders)
         setNewOrderIds((prev) => new Set([...prev, ...arrived]))
         arrived.forEach((id) =>
           setTimeout(() => setNewOrderIds((prev) => {
@@ -285,18 +288,8 @@ function OrdersPage() {
 
   useEffect(() => {
     fetchOrders()
-    const channel = supabase
-      .channel('dashboard-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${profile.restaurant_id}` }, () => fetchOrders())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_items' }, () => fetchOrders())
-      .subscribe()
-    // Backstop in case the realtime connection drops on a flaky network.
-    const poll = setInterval(fetchOrders, 60000)
-    return () => {
-      supabase.removeChannel(channel)
-      clearInterval(poll)
-    }
-  }, [fetchOrders, profile.restaurant_id])
+  }, [fetchOrders])
+  const live = useLiveOrders({ restaurantId: profile.restaurant_id, onChange: fetchOrders })
 
   useEffect(() => {
     if (tab === 'history' && history === null) fetchHistory()
@@ -331,7 +324,13 @@ function OrdersPage() {
     <div>
       <PageHeader
         title="Pedidos"
-        sub={new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+        sub={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+            <LiveBadge mode={live} dark={false} />
+          </span>
+        }
+        actions={<AlertsButton dark={false} />}
       />
 
       <OrderingStatusBar restaurant={restaurant} onChange={(patch) => setRestaurant?.((r) => ({ ...r, ...patch }))} />
