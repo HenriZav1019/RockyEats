@@ -1,40 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Pause, Play } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
-import { DAY_LABELS_EN as DAY_LABELS, getOpenStatus, useNow } from '../../lib/hours.js'
+import { getOpenStatus, useNow } from '../../lib/hours.js'
+
+const DAY_ES = { mon: 'el lunes', tue: 'el martes', wed: 'el miércoles', thu: 'el jueves', fri: 'el viernes', sat: 'el sábado', sun: 'el domingo' }
 
 function describe(status) {
-  if (status.reason === 'paused') return 'Orders paused: customers can see your menu but can’t order.'
+  if (status.reason === 'paused') return { title: 'Pedidos en pausa', sub: 'Los clientes ven tu menú pero no pueden pedir.' }
   if (status.open) {
-    return status.closesAt ? `Taking orders · closes at ${status.closesAt}` : 'Taking orders'
+    return {
+      title: 'Recibiendo pedidos',
+      sub: status.closesAt ? `Según tu horario cierras a las ${status.closesAt}.` : 'Sin horario: siempre abierto.',
+    }
   }
-  if (!status.nextOpen) return 'Closed by your schedule (no opening hours set for this week).'
+  if (!status.nextOpen) return { title: 'Cerrado por horario', sub: 'No hay horas de apertura esta semana. Revisa Ajustes.' }
   const { daysAhead, dayKey, time } = status.nextOpen
-  const when = daysAhead === 0 ? 'today' : daysAhead === 1 ? 'tomorrow' : DAY_LABELS[dayKey]
-  return `Closed by your schedule · opens ${when} at ${time}`
+  const when = daysAhead === 0 ? 'hoy' : daysAhead === 1 ? 'mañana' : DAY_ES[dayKey]
+  return { title: 'Cerrado por horario', sub: `Abres ${when} a las ${time}.` }
 }
 
-// Shows whether customers can order right now, with a one-tap pause switch
-// for when the kitchen is overwhelmed. Owners only (DashboardLayout routes
-// station staff elsewhere).
-function OrderingStatusBar({ restaurantId }) {
-  const [restaurant, setRestaurant] = useState(null)
+// Whether customers can order right now, plus the one-tap pause switch for
+// when the kitchen is overwhelmed. Owners only.
+function OrderingStatusBar({ restaurant, onChange }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const now = useNow()
-
-  useEffect(() => {
-    supabase
-      .from('restaurants')
-      .select('opening_hours, orders_paused, timezone')
-      .eq('id', restaurantId)
-      .single()
-      .then(({ data }) => setRestaurant(data || null))
-  }, [restaurantId])
 
   if (!restaurant) return null
 
   const status = getOpenStatus(restaurant, now)
   const paused = restaurant.orders_paused
+  const { title, sub } = describe(status)
 
   const togglePause = async () => {
     setSaving(true)
@@ -42,41 +38,39 @@ function OrderingStatusBar({ restaurantId }) {
     const { error: updateError } = await supabase
       .from('restaurants')
       .update({ orders_paused: !paused })
-      .eq('id', restaurantId)
+      .eq('id', restaurant.id)
     setSaving(false)
     if (updateError) {
-      setError(updateError.message)
+      setError('No se pudo cambiar. Intenta de nuevo.')
       return
     }
-    setRestaurant((r) => ({ ...r, orders_paused: !paused }))
+    onChange?.({ orders_paused: !paused })
   }
 
-  const tone = paused
-    ? 'border-amber-300 bg-amber-50 text-amber-900'
-    : status.open
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-      : 'border-gray-200 bg-gray-100 text-gray-700'
+  const tone = paused ? 'bg-mango-400 text-sea-950' : status.open ? 'bg-tide-500 text-white' : 'bg-sea-950 text-white'
+  const dot = paused ? 'bg-sea-950' : status.open ? 'bg-white' : 'bg-white/50'
 
   return (
-    <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${tone}`}>
-      <p className="flex items-center gap-2 text-sm font-medium">
-        <span
-          aria-hidden="true"
-          className={`h-2.5 w-2.5 rounded-full ${paused ? 'bg-amber-500' : status.open ? 'bg-emerald-500' : 'bg-gray-500'}`}
-        />
-        {describe(status)}
-      </p>
+    <div className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3.5 ${tone}`}>
+      <div className="flex min-w-0 items-start gap-3">
+        <span aria-hidden="true" className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${dot} ${status.open && !paused ? 'animate-pulse' : ''}`} />
+        <div>
+          <p className="font-bold">{title}</p>
+          <p className="text-sm opacity-85">{sub}</p>
+        </div>
+      </div>
       <button
         type="button"
         onClick={togglePause}
         disabled={saving}
-        className={`rounded-md px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50 ${
-          paused ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+        className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-bold transition disabled:opacity-60 ${
+          paused ? 'bg-sea-950 text-white hover:bg-sea-800' : 'bg-white/95 text-sea-950 hover:bg-white'
         }`}
       >
-        {saving ? '…' : paused ? 'Resume orders' : 'Pause orders'}
+        {paused ? <Play size={17} strokeWidth={2.5} aria-hidden="true" /> : <Pause size={17} strokeWidth={2.5} aria-hidden="true" />}
+        {saving ? 'Guardando…' : paused ? 'Reanudar pedidos' : 'Pausar pedidos'}
       </button>
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
+      {error && <p className="w-full text-sm font-semibold">{error}</p>}
     </div>
   )
 }

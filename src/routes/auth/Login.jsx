@@ -2,6 +2,46 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { isAdminProfile } from '../../lib/adminAccess.js'
+import wordmark from '../../assets/rockyeats-wordmark-tight.webp'
+import Sunset from '../../components/Sunset.jsx'
+import { inputClass } from '../../components/ui.jsx'
+
+// Supabase returns English messages; staff see Spanish.
+function authErrorMessage(error) {
+  const msg = error?.message || ''
+  if (/invalid login credentials/i.test(msg)) return 'Correo o contraseña incorrectos.'
+  if (/email not confirmed/i.test(msg)) return 'Esta cuenta aún no confirma su correo.'
+  if (/rate limit|too many/i.test(msg)) return 'Demasiados intentos. Espera un minuto e intenta de nuevo.'
+  if (/fetch|network/i.test(msg)) return 'Sin conexión. Revisa tu internet e intenta de nuevo.'
+  return 'No pudimos iniciar sesión. Intenta de nuevo.'
+}
+
+function Shell({ children }) {
+  return (
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-sea-950 px-5 pb-10 pt-10 text-white">
+      <Sunset className="pointer-events-none absolute -right-16 top-10 w-[320px] opacity-80 sm:right-[8%] sm:w-[420px]" />
+      <img src={wordmark} alt="RockyEats" className="relative h-9 w-auto self-start sm:mx-auto sm:self-center" width="520" height="165" />
+      <div className="relative mx-auto mt-auto w-full max-w-sm sm:mt-24">{children}</div>
+    </div>
+  )
+}
+
+function Message({ children, onSignOut }) {
+  return (
+    <Shell>
+      <div className="rounded-2xl bg-white p-6 text-sea-950">
+        <p>{children}</p>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="mt-4 text-sm font-semibold text-sea-950/60 underline underline-offset-2 hover:text-sea-950"
+        >
+          Cerrar sesión
+        </button>
+      </div>
+    </Shell>
+  )
+}
 
 function Login() {
   const { session, profile, loading, signIn, signOut } = useAuth()
@@ -11,22 +51,7 @@ function Login() {
   const [submitting, setSubmitting] = useState(false)
 
   if (!loading && session && profile?.role === 'admin' && !isAdminProfile(profile)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm">
-          <p className="text-gray-700">
-            This account isn't authorized for admin access.
-          </p>
-          <button
-            type="button"
-            onClick={() => signOut()}
-            className="text-sm text-gray-500 hover:text-gray-800"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-    )
+    return <Message onSignOut={() => signOut()}>Esta cuenta no tiene acceso de administrador.</Message>
   }
 
   if (!loading && session && profile) {
@@ -35,21 +60,9 @@ function Login() {
 
   if (!loading && session && !profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm">
-          <p className="text-gray-700">
-            You're signed in, but this account has no role assigned yet. Ask an admin to assign
-            one under Admin → Users.
-          </p>
-          <button
-            type="button"
-            onClick={() => signOut()}
-            className="text-sm text-gray-500 hover:text-gray-800"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
+      <Message onSignOut={() => signOut()}>
+        Ya iniciaste sesión, pero tu cuenta todavía no tiene un rol. Pide al administrador que te dé acceso en Admin, Usuarios.
+      </Message>
     )
   }
 
@@ -57,63 +70,61 @@ function Login() {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
-
     const { error: signInError } = await signIn(email, password)
-
     if (signInError) {
-      setError(signInError.message)
+      setError(authErrorMessage(signInError))
       setSubmitting(false)
     }
-    // On success, the session/profile effects above will redirect automatically.
+    // On success, the session/profile effects above redirect automatically.
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
-      >
-        <h1 className="text-xl font-semibold text-gray-900">RockyEats sign in</h1>
-
+    <Shell>
+      <h1 className="condensed text-5xl font-extrabold leading-[0.9]">Panel del restaurante</h1>
+      <p className="mt-2 text-white/65">Pedidos, cocina, menú y ventas en un solo lugar.</p>
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-2xl bg-white p-5 text-sea-950">
         <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="email">
-            Email
+          <label htmlFor="email" className="mb-1.5 block text-sm font-semibold">
+            Correo
           </label>
           <input
             id="email"
             type="email"
             required
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+            className={inputClass}
           />
         </div>
-
         <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="password">
-            Password
+          <label htmlFor="password" className="mb-1.5 block text-sm font-semibold">
+            Contraseña
           </label>
           <input
             id="password"
             type="password"
             required
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+            className={inputClass}
           />
         </div>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
+        {error && (
+          <p role="alert" className="rounded-xl bg-chili-500/10 px-3.5 py-3 text-sm font-semibold text-chili-500">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="flex h-12 w-full items-center justify-center rounded-xl bg-sun-500 text-base font-bold text-white transition hover:bg-sun-600 disabled:opacity-60"
         >
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {submitting ? 'Entrando…' : 'Entrar'}
         </button>
       </form>
-    </div>
+    </Shell>
   )
 }
 

@@ -1,232 +1,292 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
+import { Printer } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { formatMoney } from '../../lib/format.js'
+import { PAYMENT_LABEL } from '../../lib/staff.js'
+import { Button, EmptyState, PageHeader, Panel, Segmented } from '../../components/staff.jsx'
 
-const DAYS = 15
+const PERIODS = [
+  { value: 1, label: 'Hoy' },
+  { value: 7, label: '7 días' },
+  { value: 30, label: '30 días' },
+]
 
-function dateKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// Money counts once it's actually in: payment confirmed, or the order was
+// handed over (card-terminal orders are paid at delivery). Open orders that
+// aren't paid yet are "por cobrar"; cancelled orders never count.
+function isCollected(o) {
+  return o.status !== 'cancelled' && (o.payment_confirmed || o.status === 'completed')
+}
+function isPending(o) {
+  return !['cancelled', 'completed'].includes(o.status) && !o.payment_confirmed
 }
 
-function buildEmptyDays() {
-  return Array.from({ length: DAYS }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (DAYS - 1 - i))
-    return {
-      key: dateKey(d),
-      label: d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }),
-      revenue: 0,
-      items: 0,
-    }
-  })
-}
-
-function StatTile({ label, value }) {
+function StatTile({ label, value, sub, tone }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
+    <div className={`rounded-2xl p-4 ${tone === 'hero' ? 'bg-sea-950 text-white' : 'bg-white ring-1 ring-sea-950/10'}`}>
+      <p className={`text-sm font-semibold ${tone === 'hero' ? 'text-white/65' : 'text-sea-950/60'}`}>{label}</p>
+      <p className="condensed mt-1 text-[2.1rem] font-extrabold leading-none tabular-nums">{value}</p>
+      {sub && <p className={`mt-1.5 text-xs ${tone === 'hero' ? 'text-white/55' : 'text-sea-950/50'}`}>{sub}</p>}
     </div>
   )
 }
 
-function groupTodayItems(orders) {
-  const groups = new Map()
+// Single series (collected revenue per day): one hue, no legend, values in
+// the tooltip and the table below. Bars cap at 24px with a 4px rounded top.
+function DailyChart({ days }) {
+  const [hover, setHover] = useState(null)
+  const max = Math.max(1, ...days.map((d) => d.revenue))
+  const step = max > 10000 ? 5000 : max > 4000 ? 2000 : max > 1000 ? 500 : 250
+  const top = Math.ceil(max / step) * step
+  const ticks = [0, top / 2, top]
+  const H = 160
+  const compact = (v) => (v >= 1000 ? `${(v / 1000).toLocaleString('es-MX', { maximumFractionDigits: 1 })}K` : `${v}`)
 
-  for (const order of orders) {
-    for (const item of order.order_items) {
-      const key = `${item.name_snapshot}__${item.price_snapshot}`
-      const existing = groups.get(key)
-      if (existing) {
-        existing.quantity += item.quantity
-        existing.total += Number(item.line_total)
-      } else {
-        groups.set(key, {
-          name: item.name_snapshot,
-          unitPrice: Number(item.price_snapshot),
-          quantity: item.quantity,
-          total: Number(item.line_total),
-        })
-      }
-    }
-  }
-
-  return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name))
+  return (
+    <div className="relative">
+      <div className="flex gap-2">
+        <div className="relative w-9 shrink-0 text-right text-[11px] text-sea-950/45 tabular-nums" style={{ height: H }}>
+          {ticks.map((t) => (
+            <span key={t} className="absolute right-0 -translate-y-1/2" style={{ top: H - (t / top) * H }}>
+              {compact(t)}
+            </span>
+          ))}
+        </div>
+        <div className="relative flex-1" style={{ height: H }}>
+          {ticks.map((t) => (
+            <div key={t} className="absolute inset-x-0 border-t border-sea-950/10" style={{ top: H - (t / top) * H }} />
+          ))}
+          <div className="absolute inset-0 flex items-end gap-0.5">
+            {days.map((d) => (
+              <div
+                key={d.key}
+                className="relative flex h-full flex-1 items-end justify-center"
+                onMouseEnter={() => setHover(d)}
+                onMouseLeave={() => setHover(null)}
+                onClick={() => setHover(d)}
+              >
+                <div
+                  className={`w-full max-w-6 rounded-t transition ${hover?.key === d.key ? 'bg-sea-950' : 'bg-tide-500'}`}
+                  style={{ height: d.revenue ? Math.max(3, (d.revenue / top) * H) : 0 }}
+                />
+                {hover?.key === d.key && (
+                  <div className="pointer-events-none absolute bottom-full z-10 mb-2 whitespace-nowrap rounded-lg bg-sea-950 px-2.5 py-1.5 text-xs text-white shadow-lg">
+                    <span className="font-bold">{d.label}</span>
+                    <br />
+                    {formatMoney(d.revenue)} · {d.orders} {d.orders === 1 ? 'pedido' : 'pedidos'}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="ml-11 mt-1.5 flex gap-0.5 text-[11px] text-sea-950/45">
+        {days.map((d, i) => (
+          <span key={d.key} className="flex-1 text-center">
+            {i === 0 || i === days.length - 1 || (days.length <= 7) ? d.short : ''}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function SalesPage() {
   const { profile } = useAuth()
-  const [days, setDays] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [hovered, setHovered] = useState(null)
-  const [restaurantName, setRestaurantName] = useState('')
-  const [todayItems, setTodayItems] = useState([])
-  const [todayLoading, setTodayLoading] = useState(true)
+  const { restaurant } = useOutletContext() || {}
+  const [period, setPeriod] = useState(7)
+  const [orders, setOrders] = useState(null)
 
   useEffect(() => {
-    supabase
-      .from('restaurants')
-      .select('name')
-      .eq('id', profile.restaurant_id)
-      .single()
-      .then(({ data }) => setRestaurantName(data?.name || ''))
-  }, [profile.restaurant_id])
-
-  useEffect(() => {
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - (DAYS - 1))
-    cutoff.setHours(0, 0, 0, 0)
-
+    setOrders(null)
+    const since = new Date()
+    since.setHours(0, 0, 0, 0)
+    since.setDate(since.getDate() - (period - 1))
     supabase
       .from('orders')
-      .select('created_at, total, status, order_items(quantity)')
+      .select('id, created_at, total, status, payment_method, payment_confirmed, order_items(name_snapshot, price_snapshot, quantity, line_total)')
       .eq('restaurant_id', profile.restaurant_id)
-      .neq('status', 'cancelled')
-      .gte('created_at', cutoff.toISOString())
-      .then(({ data }) => {
-        const buckets = buildEmptyDays()
-        const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]))
+      .gte('created_at', since.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(5000)
+      .then(({ data }) => setOrders(data || []))
+  }, [profile.restaurant_id, period])
 
-        for (const order of data || []) {
-          const key = dateKey(new Date(order.created_at))
-          const bucket = byKey[key]
-          if (!bucket) continue
-          bucket.revenue += Number(order.total)
-          bucket.items += order.order_items.reduce((sum, i) => sum + i.quantity, 0)
-        }
+  const stats = useMemo(() => {
+    if (!orders) return null
+    const collected = orders.filter(isCollected)
+    const pending = orders.filter(isPending)
+    const revenue = collected.reduce((s, o) => s + Number(o.total), 0)
+    const byPayment = ['cash', 'transfer', 'card_terminal'].map((key) => {
+      const list = collected.filter((o) => o.payment_method === key)
+      return { key, count: list.length, total: list.reduce((s, o) => s + Number(o.total), 0) }
+    })
+    const days = Array.from({ length: period }, (_, i) => {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      d.setDate(d.getDate() - (period - 1 - i))
+      return {
+        key: dateKey(d),
+        label: d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }),
+        short: d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }),
+        revenue: 0,
+        orders: 0,
+      }
+    })
+    const byDay = Object.fromEntries(days.map((d) => [d.key, d]))
+    for (const o of collected) {
+      const bucket = byDay[dateKey(new Date(o.created_at))]
+      if (bucket) {
+        bucket.revenue += Number(o.total)
+        bucket.orders += 1
+      }
+    }
+    const items = new Map()
+    for (const o of collected) {
+      for (const it of o.order_items) {
+        const k = `${it.name_snapshot}__${it.price_snapshot}`
+        const g = items.get(k) || { name: it.name_snapshot, unit: Number(it.price_snapshot), quantity: 0, total: 0 }
+        g.quantity += it.quantity
+        g.total += Number(it.line_total)
+        items.set(k, g)
+      }
+    }
+    return {
+      revenue,
+      count: collected.length,
+      avg: collected.length ? revenue / collected.length : 0,
+      pendingTotal: pending.reduce((s, o) => s + Number(o.total), 0),
+      pendingCount: pending.length,
+      cancelled: orders.filter((o) => o.status === 'cancelled').length,
+      byPayment,
+      days,
+      items: [...items.values()].sort((a, b) => b.total - a.total),
+    }
+  }, [orders, period])
 
-        setDays(buckets)
-        setLoading(false)
-      })
-  }, [profile.restaurant_id])
-
-  useEffect(() => {
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    supabase
-      .from('orders')
-      .select('order_items(name_snapshot, price_snapshot, quantity, line_total)')
-      .eq('restaurant_id', profile.restaurant_id)
-      .neq('status', 'cancelled')
-      .gte('created_at', todayStart.toISOString())
-      .then(({ data }) => {
-        setTodayItems(groupTodayItems(data || []))
-        setTodayLoading(false)
-      })
-  }, [profile.restaurant_id])
-
-  if (loading) return <p className="text-gray-500">Cargando ventas…</p>
-
-  const totalRevenue = days.reduce((sum, d) => sum + d.revenue, 0)
-  const totalItems = days.reduce((sum, d) => sum + d.items, 0)
-  const avgPerDay = totalRevenue / DAYS
-  const maxRevenue = Math.max(1, ...days.map((d) => d.revenue))
-  const todayTotal = todayItems.reduce((sum, i) => sum + i.total, 0)
-  const todayDateLabel = new Date().toLocaleDateString('es-MX', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  const periodLabel = period === 1
+    ? new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : `Últimos ${period} días`
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900 print:hidden">Ventas — últimos {DAYS} días</h1>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 print:hidden">
-        <StatTile label="Ingresos totales" value={`$${totalRevenue.toFixed(2)}`} />
-        <StatTile label="Artículos vendidos" value={totalItems} />
-        <StatTile label="Promedio diario" value={`$${avgPerDay.toFixed(2)}`} />
+    <div>
+      <div className="print:hidden">
+        <PageHeader
+          title="Ventas"
+          sub="Solo cuenta lo cobrado: pedidos con pago recibido o entregados."
+          actions={<Segmented label="Periodo" value={period} onChange={setPeriod} options={PERIODS} />}
+        />
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm print:hidden">
-        <p className="text-sm font-medium text-gray-700">Ingresos por día</p>
-
-        <div className="mt-6 flex items-end gap-1.5 border-b border-gray-200 pb-1" style={{ height: 160 }}>
-          {days.map((d) => (
-            <div
-              key={d.key}
-              className="group relative flex flex-1 flex-col items-center justify-end"
-              onMouseEnter={() => setHovered(d.key)}
-              onMouseLeave={() => setHovered(null)}
-            >
-              {hovered === d.key && (
-                <div className="absolute -top-14 z-10 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs text-white shadow-lg">
-                  {d.label}: ${d.revenue.toFixed(2)} · {d.items} artículos
-                </div>
-              )}
-              <div
-                className="w-full max-w-6 rounded-t bg-ocean-600 transition group-hover:bg-ocean-700"
-                style={{ height: `${Math.max(2, (d.revenue / maxRevenue) * 140)}px` }}
-              />
-            </div>
+      {!stats ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-sea-950/[0.06]" />
           ))}
         </div>
-
-        <div className="mt-1 flex gap-1.5">
-          {days.map((d, i) => (
-            <div key={d.key} className="flex-1 text-center text-[10px] text-gray-400">
-              {i % 2 === 0 ? d.label : ''}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm print:rounded-none print:border-none print:p-0 print:shadow-none">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Ventas de hoy</h2>
-            <p className="text-sm capitalize text-gray-500">
-              {restaurantName ? `${restaurantName} · ` : ''}
-              {todayDateLabel}
-            </p>
+      ) : (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:hidden">
+            <StatTile tone="hero" label="Cobrado" value={formatMoney(stats.revenue)} sub={periodLabel} />
+            <StatTile label="Pedidos cobrados" value={stats.count} sub={stats.cancelled ? `${stats.cancelled} cancelados` : undefined} />
+            <StatTile label="Ticket promedio" value={formatMoney(Math.round(stats.avg))} />
+            <StatTile
+              label="Por cobrar"
+              value={formatMoney(stats.pendingTotal)}
+              sub={stats.pendingCount ? `${stats.pendingCount} pedidos sin pago confirmado` : 'Nada pendiente'}
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            disabled={todayLoading || todayItems.length === 0}
-            className="print:hidden rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            🖨️ Exportar ventas de hoy
-          </button>
-        </div>
 
-        {todayLoading ? (
-          <p className="mt-4 text-sm text-gray-500">Cargando…</p>
-        ) : todayItems.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-500">Todavía no hay ventas hoy.</p>
-        ) : (
-          <table className="mt-4 w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-500">
-                <th className="py-2 font-medium">Artículo</th>
-                <th className="py-2 text-right font-medium">Cantidad</th>
-                <th className="py-2 text-right font-medium">Precio</th>
-                <th className="py-2 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {todayItems.map((item) => (
-                <tr key={`${item.name}__${item.unitPrice}`} className="border-b border-gray-100 text-gray-800">
-                  <td className="py-2">{item.name}</td>
-                  <td className="py-2 text-right">{item.quantity}</td>
-                  <td className="py-2 text-right">${item.unitPrice.toFixed(2)}</td>
-                  <td className="py-2 text-right">${item.total.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="font-semibold text-gray-900">
-                <td className="py-2" colSpan={3}>
-                  Total del día
-                </td>
-                <td className="py-2 text-right">${todayTotal.toFixed(2)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        )}
-      </div>
+          <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr] print:hidden">
+            {period > 1 && (
+              <Panel title="Cobrado por día">
+                <DailyChart days={stats.days} />
+              </Panel>
+            )}
+            <Panel title="Por forma de pago" className={period === 1 ? 'lg:col-span-2' : ''}>
+              <ul className="space-y-3">
+                {stats.byPayment.map((p) => (
+                  <li key={p.key}>
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="font-semibold">{PAYMENT_LABEL[p.key]}</span>
+                      <span className="font-bold tabular-nums">{formatMoney(p.total)}</span>
+                    </div>
+                    <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sea-950/[0.06]">
+                      <div className="h-full rounded-full bg-tide-500" style={{ width: `${stats.revenue ? (p.total / stats.revenue) * 100 : 0}%` }} />
+                    </div>
+                    <p className="mt-1 text-xs text-sea-950/50">
+                      {p.count} {p.count === 1 ? 'pedido' : 'pedidos'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          </div>
+
+          <Panel className="print:rounded-none print:p-0 print:ring-0">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold">{period === 1 ? 'Corte del día' : 'Lo más vendido'}</h2>
+                <p className="mt-1 text-sm capitalize text-sea-950/60">
+                  {restaurant?.name ? `${restaurant.name}, ` : ''}
+                  {periodLabel}
+                </p>
+              </div>
+              <Button tone="dark" size="sm" onClick={() => window.print()} disabled={stats.items.length === 0} className="print:hidden">
+                <Printer size={16} aria-hidden="true" />
+                Imprimir
+              </Button>
+            </div>
+            {stats.items.length === 0 ? (
+              <EmptyState title="Sin ventas cobradas en este periodo" />
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-sea-950/15 text-left text-sea-950/55">
+                    <th className="py-2 font-semibold">Platillo</th>
+                    <th className="py-2 text-right font-semibold">Cant.</th>
+                    <th className="hidden py-2 text-right font-semibold sm:table-cell">Precio</th>
+                    <th className="py-2 text-right font-semibold">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.items.map((it) => (
+                    <tr key={`${it.name}__${it.unit}`} className="border-b border-sea-950/[0.07]">
+                      <td className="py-2">{it.name}</td>
+                      <td className="py-2 text-right tabular-nums">{it.quantity}</td>
+                      <td className="hidden py-2 text-right tabular-nums sm:table-cell">{formatMoney(it.unit)}</td>
+                      <td className="py-2 text-right tabular-nums">{formatMoney(it.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  {stats.byPayment.filter((p) => p.total > 0).map((p) => (
+                    <tr key={p.key} className="text-sea-950/70">
+                      <td className="pt-3" colSpan={2}>
+                        {PAYMENT_LABEL[p.key]}
+                      </td>
+                      <td className="hidden sm:table-cell" />
+                      <td className="pt-3 text-right tabular-nums">{formatMoney(p.total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-bold">
+                    <td className="pt-2" colSpan={2}>
+                      Total cobrado
+                    </td>
+                    <td className="hidden sm:table-cell" />
+                    <td className="pt-2 text-right tabular-nums">{formatMoney(stats.revenue)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </Panel>
+        </div>
+      )}
     </div>
   )
 }

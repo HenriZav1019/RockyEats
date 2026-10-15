@@ -29,8 +29,8 @@ const UsersPage = lazy(() => import('./routes/admin/UsersPage.jsx'))
 
 function RouteLoadingFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-sand-50">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-ocean-500 border-t-transparent" />
+    <div className="flex min-h-screen items-center justify-center bg-salt" aria-busy="true">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-sun-500 border-t-transparent" />
     </div>
   )
 }

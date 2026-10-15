@@ -4,6 +4,20 @@ Running log of what's been built, kept in the repo so it's readable from any dev
 
 ---
 
+## 2026-10-14 — Staff side redesign (dashboard, kitchen/bar, admin, login), Spanish
+
+- Same tokens as the customer app. Shared pieces: `components/staff.jsx` (PageHeader, Panel, Button, Toggle, Segmented, StatusPill, EmptyState), `components/ScreenTools.jsx` (dark screen header with clock + "Activar sonido"), `lib/staff.js` (Spanish labels, NEXT_STEP per status, wait-time tones 15/25 min, WhatsApp number with +52 default). Staff side is Spanish only.
+- Dashboard shell: navy top bar with restaurant name; bottom tab bar on phones (Pedidos, Fila, Menú, Ventas, Ajustes); queue routes switch to a dark full-width screen mode. Restaurant row is loaded once and shared via `useOutletContext()`.
+- Pedidos: tabs Activos / Hoy / Historial (30 days, on demand); no longer loads every order ever. Oldest active first, wait timer, one big next-step button, "Pago recibido", cancel with confirm, call + WhatsApp links, kitchen/bar progress chips, note that kitchen only sees paid orders. 60 s polling backstop.
+- Cocina/Bar: ticket cards, tap an item to mark it ready, timer turns orange at 15 min and red at 25, "Listos" strip with undo (confirm). Fila: three columns with kitchen/bar done icons and a bottom sheet with the next step. 45 s polling backstop.
+- New migration `20261014120000_realtime_order_items.sql`: adds `order_items` to `supabase_realtime` so item changes sync across devices.
+- `chime.js`: `unlockAudio()` for the "Activar sonido" button (browsers block audio until a tap).
+- Menú: edit any item in a sheet (name, price, category with suggestions, description, station, photo URL, available), search, grouped by category with food first, delete with confirm.
+- Ventas: Hoy / 7 / 30 días; revenue counts only paid or completed orders, "Por cobrar" shown separately; breakdown by cash/transfer/card; printable "Corte del día".
+- Ajustes: hours editor in Spanish, payment toggles (blocks saving with none on), read-only bank details, logo preview; sticky save bar.
+- Admin: open/closed/paused/hidden status per restaurant, restyled form with CLABE (18 digits) and WhatsApp checks, users grouped by restaurant with "Quitar acceso" (deletes the profile, not the login).
+- Login: Spanish, auth errors translated.
+
 ## 2026-10-02 — Customer-side redesign (mobile first)
 
 - Direction: beach-town app with hand-painted-sign (rotulación) energy. One typeface, Bricolage Grotesque (self-hosted via `@fontsource-variable/bricolage-grotesque`, Google Fonts removed), condensed + extra-bold for names, prices and the order number. Tokens in `src/index.css`: `sea-*` (navy ink), `sun-*` (orange actions), `tide-*` (teal = open/success), `mango-400`, `chili-500`, `salt` page bg. Icons from `lucide-react` replace the emoji.

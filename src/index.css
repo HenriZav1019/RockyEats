@@ -17,6 +17,7 @@
   --color-tide-500: #0fa394; /* open, success */
   --color-tide-100: #d4f3ee;
   --color-chili-500: #d7263d; /* sold out, errors */
+  --color-chili-400: #ff6b7d; /* same, readable on navy */
   --color-salt: #f4f7f6;     /* page background: cool, bright for outdoor reading */
 
   --color-sunset-50: #fff8f0;

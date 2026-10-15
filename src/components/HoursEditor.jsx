@@ -1,7 +1,11 @@
-import { DAY_KEYS, DAY_LABELS_EN as DAY_LABELS, hoursErrors } from '../lib/hours.js'
+import { Plus, X } from 'lucide-react'
+import { DAY_KEYS, DAY_LABELS_ES as DAY_LABELS, hoursErrors } from '../lib/hours.js'
+import { Toggle } from './staff.jsx'
 
 const MAX_RANGES = 3
 const DEFAULT_RANGE = { open: '09:00', close: '21:00' }
+const timeInput =
+  'h-11 rounded-xl bg-white px-3 text-base tabular-nums ring-1 ring-sea-950/15 focus:outline-none focus:ring-2 focus:ring-sun-500'
 
 function HoursEditor({ value, onChange }) {
   const weekly = value !== null && value !== undefined
@@ -22,69 +26,76 @@ function HoursEditor({ value, onChange }) {
   const errors = hoursErrors(value)
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-4 text-sm text-gray-700">
-        <label className="flex items-center gap-2">
-          <input type="radio" name="hours-mode" checked={!weekly} onChange={() => switchMode(false)} />
-          Always open (no set hours)
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="radio" name="hours-mode" checked={weekly} onChange={() => switchMode(true)} />
-          Set weekly hours
-        </label>
+    <div className="space-y-4">
+      <div role="radiogroup" aria-label="Tipo de horario" className="grid gap-2 sm:grid-cols-2">
+        {[
+          { weekly: false, title: 'Siempre abierto', sub: 'Sin horario fijo' },
+          { weekly: true, title: 'Horario semanal', sub: 'Solo se puede pedir en estas horas' },
+        ].map((o) => (
+          <button
+            key={String(o.weekly)}
+            type="button"
+            role="radio"
+            aria-checked={weekly === o.weekly}
+            onClick={() => switchMode(o.weekly)}
+            className={`rounded-xl p-3 text-left transition ${weekly === o.weekly ? 'bg-sea-950 text-white' : 'bg-salt ring-1 ring-sea-950/15'}`}
+          >
+            <span className="block text-sm font-bold">{o.title}</span>
+            <span className={`block text-sm ${weekly === o.weekly ? 'text-white/65' : 'text-sea-950/55'}`}>{o.sub}</span>
+          </button>
+        ))}
       </div>
 
       {weekly && (
         <>
-          <p className="text-xs text-gray-500">
-            Customers can only order during these hours (Sonora time). For late nights, set a closing
-            time earlier than opening, e.g. 18:00 – 02:00 runs past midnight.
+          <p className="text-sm text-sea-950/60">
+            Hora de Sonora. Para horarios de noche, pon la hora de cierre antes que la de apertura: 18:00 a 02:00 cierra a las 2 de la mañana del día siguiente.
           </p>
 
-          <div className="divide-y divide-gray-100 rounded-md border border-gray-200">
+          <ul className="divide-y divide-sea-950/10 rounded-xl ring-1 ring-sea-950/10">
             {DAY_KEYS.map((day) => {
               const ranges = hours[day] || []
               const isOpen = ranges.length > 0
               return (
-                <div key={day} className="flex flex-wrap items-start gap-3 px-3 py-2">
-                  <label className="flex w-32 shrink-0 items-center gap-2 pt-1.5 text-sm font-medium text-gray-800">
-                    <input
-                      type="checkbox"
+                <li key={day} className="px-3.5 py-3">
+                  <div className="w-full sm:w-64">
+                    <Toggle
                       checked={isOpen}
-                      onChange={(e) => setDay(day, e.target.checked ? [{ ...DEFAULT_RANGE }] : [])}
+                      onChange={(on) => setDay(day, on ? [{ ...DEFAULT_RANGE }] : [])}
+                      label={DAY_LABELS[day]}
+                      sub={isOpen ? null : 'Cerrado'}
                     />
-                    {DAY_LABELS[day]}
-                  </label>
-
-                  {isOpen ? (
-                    <div className="flex flex-1 flex-col gap-2">
+                  </div>
+                  {isOpen && (
+                    <div className="mt-3 space-y-2">
                       {ranges.map((r, i) => (
-                        <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
+                        <div key={i} className="flex flex-wrap items-center gap-2">
                           <input
                             type="time"
                             value={r.open}
-                            aria-label={`${DAY_LABELS[day]} opens`}
+                            aria-label={`${DAY_LABELS[day]}: abre`}
                             onChange={(e) => updateRange(day, i, 'open', e.target.value)}
-                            className="rounded-md border border-gray-300 px-2 py-1"
+                            className={timeInput}
                           />
-                          <span className="text-gray-400">–</span>
+                          <span className="text-sm text-sea-950/50">a</span>
                           <input
                             type="time"
                             value={r.close}
-                            aria-label={`${DAY_LABELS[day]} closes`}
+                            aria-label={`${DAY_LABELS[day]}: cierra`}
                             onChange={(e) => updateRange(day, i, 'close', e.target.value)}
-                            className="rounded-md border border-gray-300 px-2 py-1"
+                            className={timeInput}
                           />
                           {r.close && r.open && r.close < r.open && (
-                            <span className="text-xs text-gray-500">(next day)</span>
+                            <span className="text-xs font-semibold text-sea-950/55">(día siguiente)</span>
                           )}
                           {ranges.length > 1 && (
                             <button
                               type="button"
                               onClick={() => setDay(day, ranges.filter((_, j) => j !== i))}
-                              className="text-xs text-red-600 hover:underline"
+                              aria-label={`Quitar este horario del ${DAY_LABELS[day].toLowerCase()}`}
+                              className="grid h-9 w-9 place-items-center rounded-full text-chili-500 hover:bg-chili-500/10"
                             >
-                              Remove
+                              <X size={17} />
                             </button>
                           )}
                         </div>
@@ -93,36 +104,31 @@ function HoursEditor({ value, onChange }) {
                         <button
                           type="button"
                           onClick={() => setDay(day, [...ranges, { open: '18:00', close: '22:00' }])}
-                          className="self-start text-xs font-medium text-ocean-700 hover:underline"
+                          className="inline-flex items-center gap-1 text-sm font-semibold text-sea-800 hover:text-sea-950"
                         >
-                          + Add another time slot
+                          <Plus size={15} strokeWidth={2.5} aria-hidden="true" />
+                          Agregar otro horario
                         </button>
                       )}
                     </div>
-                  ) : (
-                    <span className="pt-1.5 text-sm text-gray-400">Closed</span>
                   )}
-                </div>
+                </li>
               )
             })}
-          </div>
+          </ul>
 
-          <button
-            type="button"
-            onClick={copyMondayToAll}
-            className="text-xs font-medium text-ocean-700 hover:underline"
-          >
-            Copy Monday's hours to every day
+          <button type="button" onClick={copyMondayToAll} className="text-sm font-semibold text-sun-600 underline underline-offset-2">
+            Copiar el horario del lunes a todos los días
           </button>
 
           {DAY_KEYS.every((d) => !(hours[d] || []).length) && (
-            <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-800">
-              Every day is set to closed, so customers won’t be able to order at all.
+            <p className="rounded-xl bg-mango-400/25 px-3.5 py-3 text-sm font-semibold">
+              Todos los días están cerrados: los clientes no podrán pedir.
             </p>
           )}
 
           {errors.length > 0 && (
-            <ul className="list-inside list-disc text-sm text-red-600">
+            <ul role="alert" className="space-y-1 rounded-xl bg-chili-500/10 px-3.5 py-3 text-sm font-semibold text-chili-500">
               {errors.map((e) => (
                 <li key={e}>{e}</li>
               ))}

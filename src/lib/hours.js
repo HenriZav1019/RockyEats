@@ -113,15 +113,15 @@ export function todayKey(timeZone, date = new Date()) {
   return DAY_KEYS[localParts(date, timeZone).dayIndex]
 }
 
-// ---- Owner/admin editor helpers (dashboard is English) ----
-export const DAY_LABELS_EN = {
-  mon: 'Monday',
-  tue: 'Tuesday',
-  wed: 'Wednesday',
-  thu: 'Thursday',
-  fri: 'Friday',
-  sat: 'Saturday',
-  sun: 'Sunday',
+// ---- Owner/admin editor helpers (staff side is Spanish) ----
+export const DAY_LABELS_ES = {
+  mon: 'Lunes',
+  tue: 'Martes',
+  wed: 'Miércoles',
+  thu: 'Jueves',
+  fri: 'Viernes',
+  sat: 'Sábado',
+  sun: 'Domingo',
 }
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
@@ -131,8 +131,8 @@ export function hoursErrors(hours) {
   const errors = []
   for (const day of DAY_KEYS) {
     for (const r of hours[day] || []) {
-      if (!TIME_RE.test(r.open) || !TIME_RE.test(r.close)) errors.push(`${DAY_LABELS_EN[day]}: enter both times`)
-      else if (r.open === r.close) errors.push(`${DAY_LABELS_EN[day]}: opening and closing time can't be the same`)
+      if (!TIME_RE.test(r.open) || !TIME_RE.test(r.close)) errors.push(`${DAY_LABELS_ES[day]}: escribe la hora de apertura y de cierre`)
+      else if (r.open === r.close) errors.push(`${DAY_LABELS_ES[day]}: la hora de apertura y la de cierre no pueden ser iguales`)
     }
   }
   return errors

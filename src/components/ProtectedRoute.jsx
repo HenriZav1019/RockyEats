@@ -6,7 +6,7 @@ function ProtectedRoute({ role, children }) {
   const { session, profile, loading } = useAuth()
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-gray-500">Loading…</div>
+    return <div className="flex min-h-screen items-center justify-center bg-sea-950 text-white/60">Cargando…</div>
   }
 
   if (!session || !profile) {
