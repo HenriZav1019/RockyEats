@@ -1,44 +1,75 @@
-import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { PackageSearch, ShoppingBag } from 'lucide-react'
+import { CircleCheck, CircleX, Clock, ReceiptText, ShoppingBag, X } from 'lucide-react'
 import { useCart } from '../../context/CartContext.jsx'
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext.jsx'
 import LanguagePicker from '../../components/LanguagePicker.jsx'
 import wordmark from '../../assets/rockyeats-wordmark-tight.webp'
-import { supabase } from '../../lib/supabase.js'
-import { getActivePendingOrders, removePendingOrder } from '../../lib/pendingOrders.js'
+import { FINAL_STATUSES, updateOrder } from '../../lib/orderHistory.js'
+import { useMyOrders } from '../../lib/useMyOrders.js'
 import { formatMoney } from '../../lib/format.js'
 
-const TERMINAL_STATUSES = ['completed', 'cancelled']
+// Slim bar under the header that follows the customer's latest order.
+function OrderBanner({ result, t, onDismiss }) {
+  const { entry, data } = result
+  const status = data.order.status
+  const number = data.order.order_number
+  const done = status === 'completed'
+  const cancelled = status === 'cancelled'
+  const tone = done ? 'bg-tide-500 text-white' : cancelled ? 'bg-chili-500 text-white' : 'bg-sun-500 text-white'
+  const Icon = done ? CircleCheck : cancelled ? CircleX : Clock
+  const text = done
+    ? t('banner.delivered').replace('{n}', number)
+    : cancelled
+      ? t('banner.cancelled').replace('{n}', number)
+      : `${t('banner.activeOrder')} #${number}: ${t(`confirm.status.${status}`)}`
+  return (
+    <div role="status" className={tone}>
+      <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-2.5 text-sm">
+        <Icon size={18} strokeWidth={2.5} className="shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 font-semibold">{text}</span>
+        <Link
+          to={done || cancelled ? '/my-orders' : `/order-confirmation/${entry.id}`}
+          onClick={done || cancelled ? onDismiss : undefined}
+          className="shrink-0 font-bold underline underline-offset-2"
+        >
+          {done || cancelled ? t('banner.myOrders') : t('banner.viewOrder')}
+        </Link>
+        {(done || cancelled) && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label={t('banner.dismiss')}
+            className="-mr-2 grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/15"
+          >
+            <X size={17} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function ClientLayoutInner() {
   const { cart, itemCount, total } = useCart()
   const { language, setLanguage, t } = useLanguage()
   const location = useLocation()
-  const [activeOrder, setActiveOrder] = useState(null)
-
-  useEffect(() => {
-    const pending = getActivePendingOrders()
-    const latest = pending[pending.length - 1]
-    if (!latest) return
-    let active = true
-    supabase.rpc('get_order_confirmation', { p_order_id: latest.id }).then(({ data }) => {
-      if (!active) return
-      if (!data || TERMINAL_STATUSES.includes(data.order.status)) {
-        removePendingOrder(latest.id)
-        return
-      }
-      setActiveOrder({ id: latest.id, orderNumber: data.order.order_number })
-    })
-    return () => {
-      active = false
-    }
-  }, [])
+  const { orders: myOrders, refresh: refreshMyOrders } = useMyOrders('active')
 
   if (!language) return <LanguagePicker />
 
   const onConfirmation = location.pathname.startsWith('/order-confirmation/')
-  const showBanner = activeOrder && location.pathname !== `/order-confirmation/${activeOrder.id}`
+  // Banner priority: the newest order still in progress; otherwise a finished
+  // order the customer hasn't seen yet ("¡Tu pedido fue entregado!").
+  const notHere = (r) => location.pathname !== `/order-confirmation/${r.entry.id}`
+  const finishedUnseen = myOrders.find(
+    (r) => r.data && FINAL_STATUSES.includes(r.data.order.status) && !r.entry.seenFinal && notHere(r),
+  )
+  const inProgress = myOrders.find((r) => r.data && !FINAL_STATUSES.includes(r.data.order.status) && notHere(r))
+  const banner = inProgress || finishedUnseen
+  const dismissBanner = (id) => {
+    updateOrder(id, { seenFinal: true })
+    refreshMyOrders()
+  }
   // Menu, cart and checkout have their own bottom bar with the cart, so the
   // header pill would be a duplicate there.
   const pageHasCartBar = /^\/r\/[^/]+(\/cart|\/checkout)?$/.test(location.pathname)
@@ -61,12 +92,12 @@ function ClientLayoutInner() {
               {language === 'es' ? 'EN' : 'ES'}
             </button>
             <Link
-              to="/track-order"
-              aria-label={t('nav.trackOrder')}
-              title={t('nav.trackOrder')}
+              to="/my-orders"
+              aria-label={t('nav.myOrders')}
+              title={t('nav.myOrders')}
               className="grid h-10 w-10 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
             >
-              <PackageSearch size={21} strokeWidth={2} />
+              <ReceiptText size={21} strokeWidth={2} />
             </Link>
             {itemCount > 0 && !pageHasCartBar && !onConfirmation && (
               <Link
@@ -81,18 +112,12 @@ function ClientLayoutInner() {
         </div>
       </header>
 
-      {showBanner && (
-        <Link
-          to={`/order-confirmation/${activeOrder.id}`}
-          className="block bg-tide-500 text-white transition hover:bg-tide-500/90"
-        >
-          <span className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2.5 text-sm">
-            <span>
-              {t('banner.activeOrder')} <strong className="font-bold">#{activeOrder.orderNumber}</strong>
-            </span>
-            <span className="font-semibold underline underline-offset-2">{t('banner.viewOrder')}</span>
-          </span>
-        </Link>
+      {banner && (
+        <OrderBanner
+          result={banner}
+          t={t}
+          onDismiss={() => dismissBanner(banner.entry.id)}
+        />
       )}
 
       <main className="flex-1">
@@ -103,8 +128,8 @@ function ClientLayoutInner() {
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
           <img src={wordmark} alt="" className="h-7 w-auto self-start opacity-90" width="520" height="165" />
           <p>{t('footer.tagline')}</p>
-          <Link to="/track-order" className="self-start font-semibold text-white/80 underline underline-offset-2">
-            {t('nav.trackOrder')}
+          <Link to="/my-orders" className="self-start font-semibold text-white/80 underline underline-offset-2">
+            {t('nav.myOrders')}
           </Link>
         </div>
       </footer>

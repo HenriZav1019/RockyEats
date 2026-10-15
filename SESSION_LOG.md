@@ -4,6 +4,15 @@ Running log of what's been built, kept in the repo so it's readable from any dev
 
 ---
 
+## 2026-10-14 — Customer: live order status, "delivered" message, Mis pedidos
+
+- Cause: the customer banner checked the order status once when the site opened and never again, and delivered orders were deleted from the phone (`pendingOrders.js`), so there were no previous orders to show.
+- `src/lib/orderHistory.js` replaces `pendingOrders.js`: keeps up to 30 orders / 90 days on the device, including finished ones (`lastStatus`, `seenFinal`); imports the old `rockyeats_pending_orders` key once.
+- `src/lib/useMyOrders.js`: re-checks active orders every 10 s and on focus/visibility via `get_order_confirmation` (customers are anonymous, so polling, not Realtime). Views share flag changes through window events.
+- Banner (ClientLayout): newest order in progress ("Tu pedido #A0012: Preparando"), otherwise an unseen finished one ("¡Tu pedido #A0012 fue entregado! Buen provecho." / cancelled), with "Mis pedidos" and dismiss.
+- New `/my-orders` page (header receipt icon + footer): En curso cards with progress, Pedidos anteriores (Entregado/Cancelado, date, items, total), link to look up an order from another phone.
+- Confirmation page: polls every 10 s + on focus, green "Tu pedido fue entregado" card, hides the WhatsApp button once finished, saves the order to history if opened from a link.
+
 ## 2026-10-14 — Fix: new orders not appearing live on staff screens
 
 - Cause: each staff screen subscribed to `orders` and `order_items` on ONE Realtime channel. Supabase joins a channel's listeners as a unit, so while `order_items` wasn't in the realtime publication (migration `20261014120000` not yet run) the whole channel failed silently and `orders` events stopped too. Screens only updated on the 45-60 s polling backstop or a manual refresh.

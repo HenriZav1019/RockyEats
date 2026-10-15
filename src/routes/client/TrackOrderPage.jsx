@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useLanguage } from '../../context/LanguageContext.jsx'
-import { addPendingOrder } from '../../lib/pendingOrders.js'
+import { addOrder } from '../../lib/orderHistory.js'
 import { BackLink, Field, Notice, PageTitle, PrimaryButton, inputClass } from '../../components/ui.jsx'
 
 function TrackOrderPage() {
@@ -30,11 +30,12 @@ function TrackOrderPage() {
       return
     }
 
-    addPendingOrder({
+    addOrder({
       id: data.order.id,
       orderNumber: data.order.order_number,
       restaurantId: data.order.restaurant_id,
       restaurantName: data.restaurant?.name || '',
+      createdAt: data.order.created_at,
     })
 
     navigate(`/order-confirmation/${data.order.id}`, {

@@ -4,7 +4,7 @@ import { Banknote, Check, CreditCard, Landmark } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
-import { addPendingOrder } from '../../lib/pendingOrders.js'
+import { addOrder } from '../../lib/orderHistory.js'
 import { placeOrder, TURNSTILE_SITE_KEY } from '../../lib/placeOrder.js'
 import TurnstileWidget from '../../components/TurnstileWidget.jsx'
 import { getOpenStatus, useNow } from '../../lib/hours.js'
@@ -143,11 +143,12 @@ function CheckoutPage() {
 
     const { order, order_items: orderItems, restaurant: orderRestaurant } = result.data
 
-    addPendingOrder({
+    addOrder({
       id: order.id,
       orderNumber: order.order_number,
       restaurantId,
       restaurantName: orderRestaurant?.name || cart.restaurantName,
+      createdAt: order.created_at,
     })
 
     navigate(`/order-confirmation/${order.id}`, {

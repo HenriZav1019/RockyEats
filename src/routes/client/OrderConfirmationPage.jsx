@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { Check, Copy, MapPin, MessageCircle, Phone } from 'lucide-react'
+import { Check, CircleCheck, Copy, MapPin, MessageCircle, Phone, ReceiptText } from 'lucide-react'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { supabase } from '../../lib/supabase.js'
-import { removePendingOrder } from '../../lib/pendingOrders.js'
+import { addOrder, getOrderHistory, updateOrder } from '../../lib/orderHistory.js'
 import { formatMoney } from '../../lib/format.js'
 import ModeIcon from '../../components/ModeIcon.jsx'
 import { Notice, SectionTitle } from '../../components/ui.jsx'
 
-const POLL_MS = 20000
+const POLL_MS = 10000
 const STEPS = ['submitted', 'confirmed', 'preparing', 'ready']
 
 const TERMINAL_STATUSES = ['completed', 'cancelled']
@@ -130,20 +130,42 @@ function OrderConfirmationPage() {
   const resolved = hasFreshState ? state : fetched
   const status = liveStatus || resolved?.order?.status || 'submitted'
 
-  // Keep the tracker current while the customer waits.
+  // Keep the tracker current while the customer waits: every 10 s, and right
+  // away when they come back to the tab or unlock the phone.
   useEffect(() => {
     if (!resolved?.order?.id || TERMINAL_STATUSES.includes(status)) return
-    const id = setInterval(async () => {
+    const check = async () => {
       if (document.hidden) return
       const { data } = await supabase.rpc('get_order_confirmation', { p_order_id: resolved.order.id })
       if (data?.order?.status) setLiveStatus(data.order.status)
-    }, POLL_MS)
-    return () => clearInterval(id)
+    }
+    const id = setInterval(check, POLL_MS)
+    document.addEventListener('visibilitychange', check)
+    window.addEventListener('focus', check)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', check)
+      window.removeEventListener('focus', check)
+    }
   }, [resolved?.order?.id, status])
 
+  // Remember the order on this device (so it appears in Mis pedidos), and
+  // once it's finished and seen here, stop announcing it in the banner.
   useEffect(() => {
-    const id = resolved?.order?.id
-    if (id && TERMINAL_STATUSES.includes(status)) removePendingOrder(id)
+    const order = resolved?.order
+    if (!order?.id) return
+    if (!getOrderHistory().some((e) => e.id === order.id)) {
+      addOrder({
+        id: order.id,
+        orderNumber: order.order_number,
+        restaurantId: order.restaurant_id,
+        restaurantName: resolved.restaurant?.name || '',
+        createdAt: order.created_at,
+      })
+    }
+    updateOrder(order.id, { lastStatus: status, ...(TERMINAL_STATUSES.includes(status) ? { seenFinal: true } : {}) })
+    // Only when the order or its status changes; `resolved` itself is a new object every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved?.order?.id, status])
 
   useEffect(() => {
@@ -186,6 +208,8 @@ function OrderConfirmationPage() {
         )}`
       : null
   const cancelled = status === 'cancelled'
+  const completed = status === 'completed'
+  const finished = cancelled || completed
 
   return (
     <div className="pb-12">
@@ -227,7 +251,17 @@ function OrderConfirmationPage() {
 
         {cancelled && <Notice tone="error">{t('confirm.cancelledHelp')}</Notice>}
 
-        {whatsappUrl ? (
+        {completed && (
+          <div role="status" className="flex items-start gap-3 rounded-2xl bg-tide-500 p-4 text-white">
+            <CircleCheck size={26} strokeWidth={2.25} className="shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-lg font-bold leading-tight">{t('confirm.deliveredTitle')}</p>
+              <p className="mt-1 text-sm text-white/85">{t('confirm.deliveredBody')}</p>
+            </div>
+          </div>
+        )}
+
+        {finished ? null : whatsappUrl ? (
           <a
             href={whatsappUrl}
             target="_blank"
@@ -310,9 +344,18 @@ function OrderConfirmationPage() {
           )}
         </section>
 
-        <Link to="/" className="block text-center text-sm font-semibold text-sea-950/65 underline underline-offset-2">
-          {t('confirm.backHome')}
-        </Link>
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <Link
+            to="/my-orders"
+            className="inline-flex h-12 items-center gap-2 rounded-full bg-sea-950 px-5 text-sm font-bold text-white"
+          >
+            <ReceiptText size={17} aria-hidden="true" />
+            {t('nav.myOrders')}
+          </Link>
+          <Link to="/" className="text-sm font-semibold text-sea-950/65 underline underline-offset-2">
+            {t('confirm.backHome')}
+          </Link>
+        </div>
       </div>
     </div>
   )
