@@ -8,6 +8,7 @@ import { signColors } from '../../lib/format.js'
 import { OpenStatusBadge } from '../../components/OpenStatus.jsx'
 import ModeIcon, { MODES } from '../../components/ModeIcon.jsx'
 import Sunset from '../../components/Sunset.jsx'
+import InstallGuide from '../../components/InstallGuide.jsx'
 
 // Accent-insensitive, case-insensitive matching ("cafe" finds "Café").
 const fold = (s) =>
@@ -140,6 +141,7 @@ function RestaurantList() {
             {t('home.heading')}
           </h1>
           <p className="mt-3 max-w-[34ch] text-base text-white/75">{t('home.subtitle')}</p>
+          <InstallGuide tone="dark" className="mt-5" />
         </div>
       </section>
 

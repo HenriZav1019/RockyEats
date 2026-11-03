@@ -3,6 +3,7 @@ import { CircleCheck, CircleX, Clock, ReceiptText, ShoppingBag, X } from 'lucide
 import { useCart } from '../../context/CartContext.jsx'
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext.jsx'
 import LanguagePicker from '../../components/LanguagePicker.jsx'
+import InstallGuide from '../../components/InstallGuide.jsx'
 import wordmark from '../../assets/rockyeats-wordmark-tight.webp'
 import { FINAL_STATUSES, updateOrder } from '../../lib/orderHistory.js'
 import { useMyOrders } from '../../lib/useMyOrders.js'
@@ -128,6 +129,7 @@ function ClientLayoutInner() {
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
           <img src={wordmark} alt="" className="h-7 w-auto self-start opacity-90" width="520" height="165" />
           <p>{t('footer.tagline')}</p>
+          <InstallGuide tone="dark" className="self-start" />
           <Link to="/my-orders" className="self-start font-semibold text-white/80 underline underline-offset-2">
             {t('nav.myOrders')}
           </Link>

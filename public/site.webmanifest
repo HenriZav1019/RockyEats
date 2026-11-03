@@ -3,8 +3,8 @@
   "short_name": "RockyEats",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0b3644",
-  "theme_color": "#0b3644",
+  "background_color": "#08202d",
+  "theme_color": "#08202d",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -24,5 +24,9 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "id": "/",
+  "lang": "es",
+  "description": "Pide en los restaurantes de Puerto Peñasco: comer ahí, a domicilio o para recoger.",
+  "orientation": "portrait"
 }
