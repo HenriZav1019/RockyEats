@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, CircleCheck, CircleX, Search } from 'lucide-react'
+import { ChevronRight, CircleCheck, CircleX, RotateCcw, Search } from 'lucide-react'
+import { useReorder } from '../../lib/useReorder.js'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { FINAL_STATUSES } from '../../lib/orderHistory.js'
 import { useMyOrders } from '../../lib/useMyOrders.js'
@@ -40,7 +41,7 @@ function ActiveCard({ data, t }) {
       <p className="mt-3 flex items-center justify-between gap-3 text-sm text-white/75">
         <span className="truncate">{itemsSummary(items)}</span>
         <span className="flex shrink-0 items-center gap-1 font-bold text-white">
-          {formatMoney(items.reduce((s, i) => s + i.price * i.quantity, 0))}
+          {formatMoney(Number(order.total ?? items.reduce((s, i) => s + i.price * i.quantity, 0)))}
           <ChevronRight size={17} aria-hidden="true" />
         </span>
       </p>
@@ -48,7 +49,7 @@ function ActiveCard({ data, t }) {
   )
 }
 
-function PastRow({ data, t, language }) {
+function PastRow({ data, t, language, onReorder, busy, error }) {
   const { order, order_items: items, restaurant } = data
   const done = order.status === 'completed'
   const date = new Date(order.created_at).toLocaleDateString(language === 'en' ? 'en-US' : 'es-MX', {
@@ -68,7 +69,7 @@ function PastRow({ data, t, language }) {
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-3">
             <span className="truncate font-bold">{restaurant?.name}</span>
-            <span className="shrink-0 font-bold tabular-nums">{formatMoney(items.reduce((s, i) => s + i.price * i.quantity, 0))}</span>
+            <span className="shrink-0 font-bold tabular-nums">{formatMoney(Number(order.total ?? items.reduce((s, i) => s + i.price * i.quantity, 0)))}</span>
           </span>
           <span className="block truncate text-sm text-sea-950/60">{itemsSummary(items)}</span>
           <span className="mt-0.5 block text-xs font-semibold text-sea-950/50">
@@ -77,6 +78,18 @@ function PastRow({ data, t, language }) {
         </span>
         <ChevronRight size={18} className="shrink-0 text-sea-950/30" aria-hidden="true" />
       </Link>
+      <div className="-mt-1 pb-3.5 pl-[3.25rem]">
+        <button
+          type="button"
+          onClick={() => onReorder(data)}
+          disabled={busy}
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-sun-500 px-3.5 text-sm font-bold text-white transition hover:bg-sun-600 disabled:opacity-60"
+        >
+          <RotateCcw size={15} strokeWidth={2.5} aria-hidden="true" />
+          {t('reorder.button')}
+        </button>
+        {error && <p className="mt-1.5 text-sm font-semibold text-chili-500">{error}</p>}
+      </div>
     </li>
   )
 }
@@ -84,6 +97,7 @@ function PastRow({ data, t, language }) {
 function MyOrdersPage() {
   const { t, language } = useLanguage()
   const { orders, loading } = useMyOrders('all')
+  const { reorder, busyId, error: reorderError } = useReorder()
   const withData = orders.filter((r) => r.data)
   const active = withData.filter((r) => !FINAL_STATUSES.includes(r.data.order.status))
   const past = withData.filter((r) => FINAL_STATUSES.includes(r.data.order.status))
@@ -123,7 +137,15 @@ function MyOrdersPage() {
               <h2 className="mb-1 text-lg font-bold">{t('myOrders.previous')}</h2>
               <ul className="divide-y divide-sea-950/10">
                 {past.map((r) => (
-                  <PastRow key={r.entry.id} data={r.data} t={t} language={language} />
+                  <PastRow
+                    key={r.entry.id}
+                    data={r.data}
+                    t={t}
+                    language={language}
+                    onReorder={reorder}
+                    busy={busyId === r.data.order.id}
+                    error={reorderError?.orderId === r.data.order.id ? reorderError.message : null}
+                  />
                 ))}
               </ul>
             </section>

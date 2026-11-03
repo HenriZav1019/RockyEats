@@ -276,6 +276,11 @@ function RestaurantMenu() {
                 >
                   <ModeIcon mode={m.key} size={20} />
                   {t(`mode.${m.key}.badge`)}
+                  {m.key === 'delivery' && restaurant.delivery_fee !== null && restaurant.delivery_fee !== undefined && (
+                    <span className={`text-[0.7rem] font-semibold ${selected ? 'text-white/70' : 'text-sea-950/55'}`}>
+                      {Number(restaurant.delivery_fee) === 0 ? t('fee.freeBadge') : `${t('fee.delivery')} ${formatMoney(restaurant.delivery_fee)}`}
+                    </span>
+                  )}
                 </button>
               )
             })}

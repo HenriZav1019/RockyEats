@@ -98,6 +98,9 @@ export function CartProvider({ children }) {
 
   const setMode = (mode) => setCart((prev) => ({ ...prev, mode }))
 
+  // "Pedir de nuevo": replaces the whole cart with a previous order's lines.
+  const replaceCart = (next) => setCart(next.items.length ? next : emptyCart)
+
   const clearCart = () => setCart(emptyCart)
 
   const total = cart.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
@@ -105,7 +108,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider
-      value={{ cart, addItem, updateQuantity, updateNotes, syncWithMenu, setMode, clearCart, total, itemCount }}
+      value={{ cart, addItem, updateQuantity, updateNotes, syncWithMenu, setMode, replaceCart, clearCart, total, itemCount }}
     >
       {children}
     </CartContext.Provider>

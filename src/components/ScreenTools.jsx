@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BellRing, Volume2 } from 'lucide-react'
 import { alertsReady, enableAlerts } from '../lib/alerts.js'
+import { enablePush } from '../lib/push.js'
 
 // "Activar sonido y avisos": browsers keep audio (and notifications) off until
 // someone taps. Stays visible and pulsing until alerts are on.
@@ -25,6 +26,8 @@ export function AlertsButton({ dark = true }) {
       onClick={async () => {
         await enableAlerts()
         setReady(alertsReady())
+        // Also turn on phone alerts (work with the screen off), where possible.
+        enablePush().catch((err) => console.warn('[push]', err))
       }}
       className="inline-flex h-11 animate-pulse items-center gap-2 rounded-xl bg-mango-400 px-3.5 text-sm font-bold text-sea-950"
     >

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, CircleAlert, Clock, RotateCcw } from 'lucide-react'
+import { Check, CircleAlert, Clock, Printer, RotateCcw } from 'lucide-react'
+import { printTicket } from '../../lib/printTicket.js'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { announceNewOrders } from '../../lib/alerts.js'
@@ -11,7 +12,7 @@ import { ScreenHeader, WAIT_BORDER, WAIT_TEXT } from '../../components/ScreenToo
 const NEW_ORDER_HIGHLIGHT_MS = 15000
 const STATION_TITLE = { kitchen: 'Cocina', bar: 'Bar' }
 
-function Ticket({ order, isNew, now, onToggle }) {
+function Ticket({ order, isNew, now, onToggle, station }) {
   const wait = minutesSince(order.created_at, now)
   const tone = waitTone(wait)
   const remaining = order.order_items.filter((i) => i.item_status !== 'ready').length
@@ -36,6 +37,15 @@ function Ticket({ order, isNew, now, onToggle }) {
             <Clock size={17} strokeWidth={2.5} aria-hidden="true" />
             {formatWait(wait)}
           </p>
+          <button
+            type="button"
+            onClick={() => printTicket(order, { kind: 'kitchen', station })}
+            aria-label={`Imprimir pedido ${order.order_number}`}
+            title="Imprimir comanda"
+            className="mt-1 inline-grid h-9 w-9 place-items-center rounded-full text-white/55 hover:bg-white/10 hover:text-white"
+          >
+            <Printer size={18} aria-hidden="true" />
+          </button>
         </div>
       </header>
 
@@ -174,7 +184,7 @@ function StationQueuePage({ station }) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {pending.map((order) => (
-            <Ticket key={order.id} order={order} now={now} isNew={newOrderIds.has(order.id)} onToggle={toggleItem} />
+            <Ticket key={order.id} order={order} now={now} isNew={newOrderIds.has(order.id)} onToggle={toggleItem} station={station} />
           ))}
         </div>
       )}

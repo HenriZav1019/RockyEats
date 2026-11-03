@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { disablePush } from '../lib/push.js'
 import { supabase } from '../lib/supabase.js'
 
 const AuthContext = createContext(null)
@@ -63,7 +64,11 @@ export function AuthProvider({ children }) {
   const signIn = (email, password) =>
     supabase.auth.signInWithPassword({ email, password })
 
-  const signOut = () => supabase.auth.signOut()
+  const signOut = async () => {
+    // Stop phone alerts for this person on this device before leaving.
+    await disablePush().catch(() => {})
+    return supabase.auth.signOut()
+  }
 
   return (
     <AuthContext.Provider value={{ session, profile, loading, signIn, signOut }}>

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Banknote, Check, ChefHat, CircleAlert, Clock, MapPin, MessageCircle, Phone, Martini, X } from 'lucide-react'
+import { Banknote, Check, ChefHat, CircleAlert, Clock, MapPin, MessageCircle, Phone, Martini, Printer, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { announceNewOrders } from '../../lib/alerts.js'
 import { useLiveOrders } from '../../lib/liveOrders.js'
 import { AlertsButton, LiveBadge } from '../../components/ScreenTools.jsx'
 import { formatMoney } from '../../lib/format.js'
+import { printTicket } from '../../lib/printTicket.js'
 import {
   ACTIVE_STATUSES,
   MODE_LABEL,
@@ -72,7 +73,7 @@ function StationChips({ items }) {
   )
 }
 
-function OrderCard({ order, isNew, now, onAdvance, onCancel, onPaid }) {
+function OrderCard({ order, isNew, now, onAdvance, onCancel, onPaid, restaurantName }) {
   const wait = minutesSince(order.created_at, now)
   const active = ACTIVE_STATUSES.includes(order.status)
   const next = NEXT_STEP[order.status]
@@ -92,6 +93,15 @@ function OrderCard({ order, isNew, now, onAdvance, onCancel, onPaid }) {
           {isNew && <StatusPill className="bg-sun-500 text-white">Nuevo</StatusPill>}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => printTicket(order, { restaurantName })}
+            aria-label={`Imprimir pedido ${order.order_number}`}
+            title="Imprimir ticket"
+            className="grid h-8 w-8 place-items-center rounded-full text-sea-950/55 hover:bg-sea-950/[0.06] hover:text-sea-950"
+          >
+            <Printer size={16} strokeWidth={2.25} aria-hidden="true" />
+          </button>
           <StatusPill className={STATUS_TONE[order.status]}>{STATUS_LABEL[order.status]}</StatusPill>
           {active ? (
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums ${WAIT_TONES[waitTone(wait)]}`}>
@@ -178,6 +188,18 @@ function OrderCard({ order, isNew, now, onAdvance, onCancel, onPaid }) {
               </li>
             ))}
           </ul>
+          {order.mode === 'delivery' && (
+            <p className="flex justify-between gap-3 border-t border-sea-950/10 py-2 text-sm">
+              <span className="text-sea-950/65">Envío</span>
+              <span className="tabular-nums text-sea-950/70">
+                {order.delivery_fee === null || order.delivery_fee === undefined
+                  ? 'Lo cobra el repartidor'
+                  : Number(order.delivery_fee) === 0
+                    ? 'Gratis'
+                    : formatMoney(order.delivery_fee)}
+              </span>
+            </p>
+          )}
           <div className="mt-2 flex items-baseline justify-between border-t-2 border-sea-950 pt-2">
             <span className="text-sm font-bold">Total</span>
             <span className="condensed text-2xl font-extrabold tabular-nums">{formatMoney(order.total)}</span>
@@ -386,6 +408,7 @@ function OrdersPage() {
               onAdvance={(o, status) => update(o, { status })}
               onPaid={(o) => update(o, { payment_confirmed: true })}
               onCancel={onCancel}
+              restaurantName={restaurant?.name}
             />
           ))}
         </div>

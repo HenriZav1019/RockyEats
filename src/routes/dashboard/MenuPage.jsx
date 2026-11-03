@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChefHat, Martini, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Camera, ChefHat, Martini, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { formatMoney } from '../../lib/format.js'
 import { inputClass } from '../../components/ui.jsx'
 import { Button, EmptyState, PageHeader, Toggle } from '../../components/staff.jsx'
+import PhotoPicker from '../../components/PhotoPicker.jsx'
 
 const emptyForm = { name: '', description: '', price: '', category: '', photo_url: '', station: 'kitchen', available: true }
 
@@ -130,10 +131,17 @@ function ItemEditor({ item, categories, onClose, onSaved, onDeleted, restaurantI
               ))}
             </div>
           </div>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold">Foto <span className="font-normal text-sea-950/50">enlace a la imagen, opcional</span></span>
-            <input type="url" value={form.photo_url} onChange={set('photo_url')} placeholder="https://…" className={inputClass} />
-          </label>
+          <PhotoPicker
+            label={
+              <>
+                Foto <span className="font-normal text-sea-950/50">opcional, los platillos con foto se venden más</span>
+              </>
+            }
+            value={form.photo_url}
+            onChange={(url) => setForm((f) => ({ ...f, photo_url: url }))}
+            restaurantId={restaurantId}
+            kind="menu"
+          />
           <div className="rounded-xl bg-white p-3.5 ring-1 ring-sea-950/10">
             <Toggle
               checked={form.available}
@@ -264,7 +272,13 @@ function MenuPage() {
                 {list.map((item) => (
                   <li key={item.id} className="flex items-center gap-3 px-4 py-3">
                     <button type="button" onClick={() => setEditing(item)} className="group flex min-w-0 flex-1 items-center gap-3 text-left">
-                      {item.photo_url && <img src={item.photo_url} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />}
+                      {item.photo_url ? (
+                        <img src={item.photo_url} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                      ) : (
+                        <span title="Sin foto" className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border-2 border-dashed border-sea-950/15 text-sea-950/30">
+                          <Camera size={18} aria-hidden="true" />
+                        </span>
+                      )}
                       <span className="min-w-0">
                         <span className={`flex items-center gap-2 font-bold ${item.available ? '' : 'text-sea-950/45 line-through'}`}>
                           <span className="truncate">{item.name}</span>

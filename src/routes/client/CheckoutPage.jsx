@@ -10,6 +10,8 @@ import TurnstileWidget from '../../components/TurnstileWidget.jsx'
 import { getOpenStatus, useNow } from '../../lib/hours.js'
 import { formatMoney } from '../../lib/format.js'
 import ModeIcon from '../../components/ModeIcon.jsx'
+import OrderTotals from '../../components/OrderTotals.jsx'
+import { deliveryFeeFor } from '../../lib/deliveryFee.js'
 import { BackLink, BottomBar, Field, Notice, PageTitle, PrimaryButton, SectionTitle, inputClass } from '../../components/ui.jsx'
 
 const PAYMENT_OPTIONS = [
@@ -78,6 +80,9 @@ function CheckoutPage() {
     return <Navigate to={`/r/${restaurantId}`} replace />
   }
 
+  const fee = cart.mode === 'delivery' ? (restaurant ? deliveryFeeFor(restaurant, 'delivery') : null) : { known: true, fee: 0 }
+  const grandTotal = total + (fee?.known ? fee.fee : 0)
+
   const availablePayments = restaurant ? PAYMENT_OPTIONS.filter((p) => restaurant[p.flag]) : []
   const needsTurnstile = Boolean(TURNSTILE_SITE_KEY)
   // Until the restaurant row loads, assume open; the database refuses closed orders anyway.
@@ -125,7 +130,7 @@ function CheckoutPage() {
                 unit_number: deliveryIsHotelOrCondo ? deliveryUnitNumber : null,
               }
             : null,
-        p_expected_total: Math.round(total * 100) / 100,
+        p_expected_total: Math.round(grandTotal * 100) / 100,
       },
       turnstileToken,
     )
@@ -136,6 +141,9 @@ function CheckoutPage() {
       turnstileRef.current?.reset()
       if (result.code === 'RE_ITEM_UNAVAILABLE' || result.code === 'RE_PRICE_CHANGED') {
         await refreshCartFromMenu()
+        // The delivery fee may have changed too.
+        const { data: fresh } = await supabase.from('restaurants').select('*').eq('id', restaurantId).single()
+        if (fresh) setRestaurant(fresh)
       }
       setError(t(`error.${result.code}`))
       return
@@ -240,7 +248,7 @@ function CheckoutPage() {
                   <input id="delivery-unit" required value={deliveryUnitNumber} onChange={(e) => setDeliveryUnitNumber(e.target.value)} className={inputClass} />
                 </Field>
               )}
-              <Notice tone="warn">{t('checkout.deliveryFeeNote')}</Notice>
+              {fee && !fee.known && <Notice tone="warn">{t('checkout.deliveryFeeNote')}</Notice>}
             </div>
           </section>
         )}
@@ -304,10 +312,7 @@ function CheckoutPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex items-baseline justify-between border-t-2 border-sea-950 pt-3">
-            <span className="font-bold">{t('cart.total')}</span>
-            <span className="condensed text-2xl font-extrabold tabular-nums">{formatMoney(total)}</span>
-          </div>
+          <OrderTotals subtotal={total} mode={cart.mode} fee={fee} t={t} />
         </section>
 
         <div className="space-y-3">
@@ -326,9 +331,9 @@ function CheckoutPage() {
         </div>
 
         <BottomBar>
-          <PrimaryButton type="submit" disabled={submitting || !cart.mode || !openStatus.open}>
+          <PrimaryButton type="submit" disabled={submitting || !cart.mode || !openStatus.open || !fee}>
             <span>{submitting ? t('checkout.sending') : t('checkout.confirm')}</span>
-            <span className="tabular-nums">{formatMoney(total)}</span>
+            <span className="tabular-nums">{formatMoney(grandTotal)}</span>
           </PrimaryButton>
         </BottomBar>
       </form>

@@ -4,6 +4,17 @@ Running log of what's been built, kept in the repo so it's readable from any dev
 
 ---
 
+## 2026-11-03 — Photo uploads, delivery fee, Pedir de nuevo, owner bank details, ticket printing, phone alerts
+
+- Migration `20261103120000_photos_fee_bank_reorder.sql`: public `photos` storage bucket (3 MB, webp/jpeg/png), owners can only write under `<their restaurant_id>/`; `restaurants.delivery_fee` (null = driver collects, 0 = free, else fixed) and `orders.delivery_fee`; `place_order()` adds the fee to delivery totals (expected total includes it); owners may change `delivery_fee` (guard) and insert/update their own `restaurant_payment_details`; `get_order_confirmation()` adds `menu_item_id`, `delivery_fee`, restaurant `logo_url`. Keeps existing `place_order` grants.
+- Photos: `lib/photos.js` shrinks in the browser (logo 512 px, dishes 1200 px, WebP with JPEG/PNG fallback, EXIF rotation) and uploads; `components/PhotoPicker.jsx` (tap to take/pick, Quitar, Pegar enlace) in the menu editor and Ajustes > Logo. Menu list shows a camera placeholder on dishes without a photo.
+- Delivery fee: Ajustes > Costo de envío (Costo fijo / Envío gratis / Lo dice el repartidor); menu shows "Envío $35" on the delivery option; `components/OrderTotals.jsx` (Subtotal / Envío / Total) in cart, checkout, confirmation; owner order card and ticket show Envío; WhatsApp message includes it.
+- Bank details: owners edit CLABE (18 digits, checked), titular and banco in Ajustes; required when transfers are on.
+- Pedir de nuevo (`lib/useReorder.js`, `CartContext.replaceCart`): from Mis pedidos and the delivered card; rebuilds the cart with today's prices, leaves out sold-out/removed dishes and lists them on the cart.
+- Printing (`lib/printTicket.js`): 80 mm ticket from Pedidos (full, with prices) and a big-text comanda from Cocina/Bar (that station's items only).
+- Phone alerts (web push): migration `20261103130000_push_notifications.sql` (pg_net, `push_subscriptions`, `save_/remove_push_subscription` RPCs, private shared secret, trigger `notify_order_push` on new order → owners, on paid/card order → kitchen/bar); edge function `notify-order` (web-push, VAPID secrets, deletes dead subscriptions); `public/sw.js`; `lib/push.js`; Ajustes > Avisos de pedidos; "Activar sonido y avisos" also subscribes; re-synced on dashboard load, removed on sign out. iPhone needs the app installed.
+- Tested locally (Postgres 16 + PostgREST + mock auth/storage): SQL permissions (other restaurant folder/bank/fee refused, kitchen refused, fee math, trigger can't break orders) and a 22-step browser run.
+
 ## 2026-10-14 — Customer: live order status, "delivered" message, Mis pedidos
 
 - Cause: the customer banner checked the order status once when the site opened and never again, and delivered orders were deleted from the phone (`pendingOrders.js`), so there were no previous orders to show.

@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { supabase } from '../../lib/supabase.js'
 import wordmark from '../../assets/rockyeats-wordmark-tight.webp'
 import { unlockAudio } from '../../lib/chime.js'
+import { syncPush } from '../../lib/push.js'
 
 const STATION_HOME = { bar_staff: '/dashboard/queue/bar', kitchen_staff: '/dashboard/queue/kitchen' }
 
@@ -24,6 +25,10 @@ function DashboardLayout() {
 
   // Browsers mute audio until the first tap. Unlock on any tap in the
   // dashboard so the new-order chime works without hunting for a button.
+  useEffect(() => {
+    syncPush()
+  }, [profile.id])
+
   useEffect(() => {
     const unlock = () => unlockAudio()
     window.addEventListener('pointerdown', unlock, { once: true })

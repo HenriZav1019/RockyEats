@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Minus, NotebookPen, Plus } from 'lucide-react'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { formatMoney } from '../../lib/format.js'
+import OrderTotals from '../../components/OrderTotals.jsx'
+import { deliveryFeeFor, useRestaurantFeeRow } from '../../lib/deliveryFee.js'
 import ModeIcon from '../../components/ModeIcon.jsx'
 import { BackLink, BottomBar, Notice, PageTitle, PrimaryButton } from '../../components/ui.jsx'
 
@@ -68,6 +70,11 @@ function CartPage() {
   const navigate = useNavigate()
   const { cart, updateQuantity, updateNotes, total } = useCart()
   const { t } = useLanguage()
+  const location = useLocation()
+  const reorderMissing = location.state?.reorderMissing || []
+  const feeRow = useRestaurantFeeRow(restaurantId)
+  const fee = cart.mode === 'delivery' ? (feeRow ? deliveryFeeFor(feeRow, 'delivery') : null) : { known: true, fee: 0 }
+  const grandTotal = total + (fee?.known ? fee.fee : 0)
 
   if (cart.restaurantId !== restaurantId || cart.items.length === 0) {
     return <Navigate to={`/r/${restaurantId}`} replace />
@@ -77,6 +84,14 @@ function CartPage() {
     <div className="mx-auto max-w-3xl px-4 pb-32 pt-3">
       <BackLink to={`/r/${restaurantId}`}>{t('cart.keepBrowsing')}</BackLink>
       <PageTitle sub={cart.restaurantName}>{t('cart.title')}</PageTitle>
+
+      {reorderMissing.length > 0 && (
+        <div className="mt-4">
+          <Notice tone="warn">
+            {t('reorder.missing')} {reorderMissing.join(', ')}
+          </Notice>
+        </div>
+      )}
 
       {cart.mode ? (
         <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-white px-3.5 py-3 ring-1 ring-sea-950/10">
@@ -106,16 +121,13 @@ function CartPage() {
         ))}
       </ul>
 
-      <div className="mt-2 flex items-baseline justify-between border-t-2 border-sea-950 pt-4">
-        <span className="text-lg font-bold">{t('cart.total')}</span>
-        <span className="condensed text-3xl font-extrabold tabular-nums">{formatMoney(total)}</span>
-      </div>
-      {cart.mode === 'delivery' && <p className="mt-2 text-sm text-sea-950/60">{t('cart.deliveryFeeShort')}</p>}
+      <OrderTotals subtotal={total} mode={cart.mode} fee={fee} t={t} big />
+      {cart.mode === 'delivery' && fee && !fee.known && <p className="mt-2 text-sm text-sea-950/60">{t('cart.deliveryFeeShort')}</p>}
 
       <BottomBar>
         <PrimaryButton type="button" disabled={!cart.mode} onClick={() => navigate(`/r/${restaurantId}/checkout`)}>
           <span>{t('cart.continue')}</span>
-          <span className="tabular-nums">{formatMoney(total)}</span>
+          <span className="tabular-nums">{formatMoney(grandTotal)}</span>
         </PrimaryButton>
       </BottomBar>
     </div>

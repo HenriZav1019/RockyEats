@@ -1,6 +1,9 @@
+import OrderTotals from '../../components/OrderTotals.jsx'
+import { deliveryFeeFor } from '../../lib/deliveryFee.js'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { Check, CircleCheck, Copy, MapPin, MessageCircle, Phone, ReceiptText } from 'lucide-react'
+import { Check, CircleCheck, Copy, MapPin, MessageCircle, Phone, ReceiptText, RotateCcw } from 'lucide-react'
+import { useReorder } from '../../lib/useReorder.js'
 import { useCart } from '../../context/CartContext.jsx'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import { supabase } from '../../lib/supabase.js'
@@ -37,6 +40,9 @@ function buildWhatsAppMessage(order, orderItems, total, restaurantName) {
     `Modo: ${MODE_LABELS_ES[order.mode]}\n` +
     `Pago: ${PAYMENT_LABELS_ES[order.payment_method]}\n\n` +
     `${itemLines}\n\n` +
+    (order.mode === 'delivery' && order.delivery_fee !== null && order.delivery_fee !== undefined
+      ? `Envío: $${Number(order.delivery_fee).toFixed(2)}\n`
+      : '') +
     `Total: $${total.toFixed(2)}`
 
   if (order.mode === 'delivery' && order.delivery_street) {
@@ -96,6 +102,7 @@ function OrderConfirmationPage() {
   const { orderId } = useParams()
   const { state } = useLocation()
   const { t } = useLanguage()
+  const { reorder, busyId, error: reorderError } = useReorder()
   const { clearCart } = useCart()
   const [bank, setBank] = useState({})
   const [fetched, setFetched] = useState(null)
@@ -200,7 +207,9 @@ function OrderConfirmationPage() {
   }
 
   const { order, orderItems, restaurant } = resolved
-  const total = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  const fee = deliveryFeeFor({ delivery_fee: order.delivery_fee }, order.mode)
+  const total = subtotal + fee.fee
   const whatsappUrl =
     restaurant?.whatsapp_enabled && restaurant?.whatsapp_number
       ? `https://wa.me/${restaurant.whatsapp_number.replace(/\D/g, '')}?text=${encodeURIComponent(
@@ -257,6 +266,16 @@ function OrderConfirmationPage() {
             <div>
               <p className="text-lg font-bold leading-tight">{t('confirm.deliveredTitle')}</p>
               <p className="mt-1 text-sm text-white/85">{t('confirm.deliveredBody')}</p>
+              <button
+                type="button"
+                onClick={() => reorder({ order, order_items: orderItems, restaurant })}
+                disabled={busyId === order.id}
+                className="mt-3 inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-bold text-sea-950 transition hover:bg-white/90 disabled:opacity-60"
+              >
+                <RotateCcw size={16} strokeWidth={2.5} aria-hidden="true" />
+                {t('reorder.button')}
+              </button>
+              {reorderError?.orderId === order.id && <p className="mt-2 text-sm font-semibold">{reorderError.message}</p>}
             </div>
           </div>
         )}
@@ -328,10 +347,7 @@ function OrderConfirmationPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex items-baseline justify-between border-t-2 border-sea-950 pt-3">
-            <span className="font-bold">{t('cart.total')}</span>
-            <span className="condensed text-2xl font-extrabold tabular-nums">{formatMoney(total)}</span>
-          </div>
+          <OrderTotals subtotal={subtotal} mode={order.mode} fee={fee} t={t} />
           {order.mode === 'delivery' && order.delivery_street && (
             <div className="mt-5 flex gap-2.5 text-sm">
               <MapPin size={17} strokeWidth={2.25} className="mt-0.5 shrink-0" aria-hidden="true" />
